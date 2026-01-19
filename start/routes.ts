@@ -69,8 +69,11 @@ router
   .group(() => {
     router
       .group(() => {
+        router.get('/google/redirect', [AuthController, 'googleRedirect'])
+        router.get('/google/callback', [AuthController, 'googleCallback'])
         router.post('/google', [AuthController, 'google'])
         router.post('/apple', [AuthController, 'apple'])
+
         router.post('/refresh', [AuthController, 'refresh']).use(middleware.auth())
         router.post('/logout', [AuthController, 'logout']).use(middleware.auth())
       })
@@ -79,4 +82,3 @@ router
     router.get('/user/me', [AuthController, 'me']).use(middleware.auth())
   })
   .prefix('/api/v1')
-

@@ -34,8 +34,8 @@ paths:
             examples:
               default:
                 value:
-                  idToken: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  fullName: "Obiabo"
+                  idToken: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...'
+                  fullName: 'Obiabo'
       responses:
         '200':
           description: Authenticated successfully
@@ -75,9 +75,9 @@ paths:
             examples:
               default:
                 value:
-                  idToken: "eyJraWQiOiIxQTJCNEMzRCIsImFsZyI6IlJTMjU2In0..."
-                  fullName: "Ada Lovelace"
-                  authorizationCode: "c9b2a0c2c9d14f7a9c..."
+                  idToken: 'eyJraWQiOiIxQTJCNEMzRCIsImFsZyI6IlJTMjU2In0...'
+                  fullName: 'Ada Lovelace'
+                  authorizationCode: 'c9b2a0c2c9d14f7a9c...'
       responses:
         '200':
           description: Authenticated successfully

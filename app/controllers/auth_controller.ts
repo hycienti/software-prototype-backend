@@ -6,6 +6,53 @@ import { googleAuthValidator, appleAuthValidator } from '#validators/auth_valida
 export default class AuthController {
   private oauthService = new OAuthService()
 
+  async googleRedirect({ ally }: HttpContext) {
+    return ally.use('google').redirect()
+  }
+
+  async googleCallback({ ally, response }: HttpContext) {
+    const google = ally.use('google')
+
+    if (google.accessDenied()) {
+      return response.unauthorized({ message: 'Access denied' })
+    }
+
+    if (google.stateMisMatch()) {
+      return response.unauthorized({ message: 'Invalid OAuth state' })
+    }
+
+    if (google.hasError()) {
+      return response.badRequest({ message: google.getError() || 'OAuth error' })
+    }
+
+    const socialUser = await google.user()
+
+    const user = await this.oauthService.findOrCreateUser('google', {
+      providerId: socialUser.id,
+      email: socialUser.email || '',
+      emailVerified: true,
+      fullName: socialUser.name || null,
+      avatarUrl: socialUser.avatarUrl || null,
+    })
+
+    const token = await User.accessTokens.create(user)
+
+    return response.ok({
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
+        emailVerified: user.emailVerified,
+      },
+      token: {
+        type: 'bearer',
+        value: token.value!.release(),
+        expiresAt: token.expiresAt?.toISOString(),
+      },
+    })
+  }
+
   async google({ request, response }: HttpContext) {
     const payload = await googleAuthValidator.validate(request.all())
 

@@ -1,10 +1,8 @@
 // AutoSwagger configuration for AdonisJS v6
-import path from 'node:path'
-import url from 'node:url'
-
 export default {
   // Project root path (required for AutoSwagger to find routes, models, validators, etc)
-  path: path.dirname(url.fileURLToPath(import.meta.url)) + '/../',
+  // Use process.cwd() which is /app in Docker (works for both dev and production)
+  path: process.cwd() + '/',
 
   tagIndex: 3,
   productionEnv: 'production',
@@ -20,9 +18,16 @@ export default {
   debug: false,
   ignore: ['/swagger', '/docs', '/docs/*'],
 
+  common: {
+    parameters: {},
+    headers: {},
+  },
+
+  securitySchemes: {},
+
   authMiddlewares: ['auth'],
   defaultSecurityScheme: 'BearerAuth',
 
   persistAuthorization: true,
   showFullPath: false,
-} as const
+}
