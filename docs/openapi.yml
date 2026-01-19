@@ -35,7 +35,7 @@ paths:
               default:
                 value:
                   idToken: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  fullName: "Ada Lovelace"
+                  fullName: "Obiabo"
       responses:
         '200':
           description: Authenticated successfully
