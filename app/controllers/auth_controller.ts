@@ -6,10 +6,24 @@ import { googleAuthValidator, appleAuthValidator } from '#validators/auth_valida
 export default class AuthController {
   private oauthService = new OAuthService()
 
+  /**
+   * @googleRedirect
+   * @summary Redirect to Google OAuth
+   * @description Initiates Google OAuth flow by redirecting to Google's consent screen
+   * @responseBody 302 - Redirects to Google OAuth
+   */
   async googleRedirect({ ally }: HttpContext) {
     return ally.use('google').redirect()
   }
 
+  /**
+   * @googleCallback
+   * @summary Google OAuth callback
+   * @description Handles the callback from Google OAuth and returns user + token
+   * @responseBody 200 - {"user": {...}, "token": {"type": "bearer", "value": "...", "expiresAt": "..."}}
+   * @responseBody 400 - {"message": "OAuth error"}
+   * @responseBody 401 - {"message": "Access denied"}
+   */
   async googleCallback({ ally, response }: HttpContext) {
     const google = ally.use('google')
 
@@ -53,6 +67,16 @@ export default class AuthController {
     })
   }
 
+  /**
+   * @google
+   * @summary Sign in with Google (mobile)
+   * @tag Auth
+   * @description Exchanges a Google ID token (from mobile SDK) for an API bearer token
+   * @requestBody {"idToken": "eyJ...", "fullName": "John Doe"}
+   * @responseBody 200 - {"user": {...}, "token": {"type": "bearer", "value": "...", "expiresAt": "..."}}
+   * @responseBody 400 - {"message": "Invalid Google token"}
+   * @responseBody 422 - Validation error
+   */
   async google({ request, response }: HttpContext) {
     const payload = await googleAuthValidator.validate(request.all())
 
@@ -81,6 +105,16 @@ export default class AuthController {
     })
   }
 
+  /**
+   * @apple
+   * @summary Sign in with Apple (mobile)
+   * @tag Auth
+   * @description Exchanges an Apple ID token (from mobile SDK) for an API bearer token
+   * @requestBody {"idToken": "eyJ...", "fullName": "John Doe", "authorizationCode": "..."}
+   * @responseBody 200 - {"user": {...}, "token": {"type": "bearer", "value": "...", "expiresAt": "..."}}
+   * @responseBody 400 - {"message": "Invalid Apple token"}
+   * @responseBody 422 - Validation error
+   */
   async apple({ request, response }: HttpContext) {
     const payload = await appleAuthValidator.validate(request.all())
 
@@ -109,22 +143,13 @@ export default class AuthController {
     })
   }
 
-  async me({ auth, response }: HttpContext) {
-    const user = auth.user!
-
-    return response.ok({
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl,
-        emailVerified: user.emailVerified,
-        lastLoginAt: user.lastLoginAt?.toISO(),
-        createdAt: user.createdAt.toISO(),
-      },
-    })
-  }
-
+  /**
+   * @refresh
+   * @summary Refresh access token
+   * @description Rotates the current bearer token (deletes old, issues new)
+   * @responseBody 200 - {"token": {"type": "bearer", "value": "...", "expiresAt": "..."}}
+   * @responseBody 401 - {"message": "Unauthorized"}
+   */
   async refresh({ auth, response }: HttpContext) {
     const user = auth.user!
 
@@ -141,6 +166,14 @@ export default class AuthController {
     })
   }
 
+  /**
+   * @logout
+   * @summary Logout
+   * @tag Auth
+   * @description Invalidates the current bearer token
+   * @responseBody 200 - {"message": "Logged out successfully"}
+   * @responseBody 401 - {"message": "Unauthorized"}
+   */
   async logout({ auth, response }: HttpContext) {
     const user = auth.user!
 

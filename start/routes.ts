@@ -14,6 +14,7 @@ import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 
 const AuthController = () => import('#controllers/auth_controller')
+const UsersController = () => import('#controllers/users_controller')
 
 router.get('/', async () => ({ status: 'ok', message: 'Haven API is running' }))
 
@@ -79,6 +80,14 @@ router
       })
       .prefix('/auth')
 
-    router.get('/user/me', [AuthController, 'me']).use(middleware.auth())
+    // User profile routes
+    router
+      .group(() => {
+        router.get('/me', [UsersController, 'me'])
+        router.patch('/me', [UsersController, 'update'])
+        router.delete('/me', [UsersController, 'destroy'])
+      })
+      .prefix('/user')
+      .use(middleware.auth())
   })
   .prefix('/api/v1')

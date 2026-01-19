@@ -20,3 +20,10 @@ export const refreshTokenValidator = vine.compile(
     refreshToken: vine.string().trim(),
   })
 )
+
+export const updateProfileValidator = vine.compile(
+  vine.object({
+    fullName: vine.string().trim().minLength(1).maxLength(255).optional(),
+    avatarUrl: vine.string().trim().url().optional(),
+  })
+)
