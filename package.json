@@ -51,10 +51,12 @@
     "typescript": "~5.8"
   },
   "dependencies": {
+    "@adonisjs/ally": "^5.1.1",
     "@adonisjs/auth": "^9.5.1",
     "@adonisjs/core": "^6.18.0",
     "@adonisjs/lucid": "^21.8.2",
     "@vinejs/vine": "^4.2.0",
+    "adonis-autoswagger": "^3.73.0",
     "jsonwebtoken": "^9.0.3",
     "luxon": "^3.7.2",
     "pg": "^8.17.1",

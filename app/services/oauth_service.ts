@@ -32,9 +32,7 @@ interface OAuthUserData {
 
 export default class OAuthService {
   async verifyGoogleToken(idToken: string): Promise<OAuthUserData> {
-    const response = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
-    )
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`)
 
     if (!response.ok) {
       throw new Error('Invalid Google token')
@@ -85,11 +83,7 @@ export default class OAuthService {
     }
   }
 
-  private async jwkToPem(jwk: {
-    kty: string
-    n: string
-    e: string
-  }): Promise<string> {
+  private async jwkToPem(jwk: { kty: string; n: string; e: string }): Promise<string> {
     const keyData = await crypto.subtle.importKey(
       'jwk',
       jwk,
@@ -102,10 +96,7 @@ export default class OAuthService {
     return `-----BEGIN PUBLIC KEY-----\n${base64.match(/.{1,64}/g)?.join('\n')}\n-----END PUBLIC KEY-----`
   }
 
-  async findOrCreateUser(
-    provider: OAuthProvider,
-    userData: OAuthUserData
-  ): Promise<User> {
+  async findOrCreateUser(provider: OAuthProvider, userData: OAuthUserData): Promise<User> {
     let user = await User.query()
       .where('oauth_provider', provider)
       .where('oauth_provider_id', userData.providerId)
