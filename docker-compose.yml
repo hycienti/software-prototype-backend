@@ -9,18 +9,19 @@ services:
       - NODE_ENV=production
       - HOST=0.0.0.0
       - PORT=3333
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       - APP_KEY=${APP_KEY}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_DATABASE=${DB_DATABASE:-haven}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - APPLE_CLIENT_ID=${APPLE_CLIENT_ID}
-      - APPLE_TEAM_ID=${APPLE_TEAM_ID}
-      - APPLE_KEY_ID=${APPLE_KEY_ID}
-      - APPLE_PRIVATE_KEY=${APPLE_PRIVATE_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-dev}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-dev}
+      - APPLE_CLIENT_ID=${APPLE_CLIENT_ID:-dev}
+      - APPLE_TEAM_ID=${APPLE_TEAM_ID:-dev}
+      - APPLE_KEY_ID=${APPLE_KEY_ID:-dev}
+      - APPLE_PRIVATE_KEY=${APPLE_PRIVATE_KEY:-dev}
     depends_on:
       postgres:
         condition: service_healthy
