@@ -55,12 +55,16 @@
     "@adonisjs/auth": "^9.5.1",
     "@adonisjs/core": "^6.18.0",
     "@adonisjs/lucid": "^21.8.2",
+    "@adonisjs/websocket": "^1.0.12",
+    "@elevenlabs/elevenlabs-js": "^2.32.0",
     "@vinejs/vine": "^4.2.0",
     "adonis-autoswagger": "^3.73.0",
     "jsonwebtoken": "^9.0.3",
     "luxon": "^3.7.2",
+    "openai": "^6.16.0",
     "pg": "^8.17.1",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "ws": "^8.19.0"
   },
   "hotHook": {
     "boundaries": [

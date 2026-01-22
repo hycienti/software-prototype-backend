@@ -31,4 +31,12 @@ export default await Env.create(new URL('../', import.meta.url), {
   APPLE_TEAM_ID: Env.schema.string(),
   APPLE_KEY_ID: Env.schema.string(),
   APPLE_PRIVATE_KEY: Env.schema.string(),
+
+  // AI Services
+  OPENAI_API_KEY: Env.schema.string(),
+  OPENAI_MODEL: Env.schema.string.optional(),
+  ELEVENLABS_API_KEY: Env.schema.string(),
+  ELEVENLABS_VOICE_ID: Env.schema.string.optional(),
+  ELEVENLABS_MODEL_ID: Env.schema.string.optional(),
+  ELEVENLABS_STT_MODEL_ID: Env.schema.string.optional(),
 })

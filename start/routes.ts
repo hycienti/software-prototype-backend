@@ -15,6 +15,8 @@ import swagger from '#config/swagger'
 
 const AuthController = () => import('#controllers/auth_controller')
 const UsersController = () => import('#controllers/users_controller')
+const ConversationsController = () => import('#controllers/conversations_controller')
+const VoiceController = () => import('#controllers/voice_controller')
 
 router.get('/', async () => ({ status: 'ok', message: 'Haven API is running' }))
 
@@ -88,6 +90,27 @@ router
         router.delete('/me', [UsersController, 'destroy'])
       })
       .prefix('/user')
+      .use(middleware.auth())
+
+    // Conversation routes
+    router
+      .group(() => {
+        router.post('/message', [ConversationsController, 'sendMessage'])
+        router.get('/stream/:id', [ConversationsController, 'streamMessage'])
+        router.get('/history', [ConversationsController, 'getHistory'])
+        router.get('/:id', [ConversationsController, 'getConversation'])
+        router.delete('/:id', [ConversationsController, 'deleteConversation'])
+      })
+      .prefix('/conversations')
+      .use(middleware.auth())
+
+    // Voice routes
+    router
+      .group(() => {
+        router.post('/process', [VoiceController, 'processVoiceMessage'])
+        router.post('/tts', [VoiceController, 'textToSpeech'])
+      })
+      .prefix('/voice')
       .use(middleware.auth())
   })
   .prefix('/api/v1')
