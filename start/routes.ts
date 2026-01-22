@@ -72,9 +72,8 @@ router
   .group(() => {
     router
       .group(() => {
-        router.get('/google/redirect', [AuthController, 'googleRedirect'])
+        router.get('/google', [AuthController, 'googleRedirect'])
         router.get('/google/callback', [AuthController, 'googleCallback'])
-        router.post('/google', [AuthController, 'google'])
         router.post('/apple', [AuthController, 'apple'])
 
         router.post('/refresh', [AuthController, 'refresh']).use(middleware.auth())

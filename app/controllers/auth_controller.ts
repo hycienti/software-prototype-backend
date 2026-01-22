@@ -1,7 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import User from '#models/user'
 import OAuthService from '#services/oauth_service'
-import { googleAuthValidator, appleAuthValidator } from '#validators/auth_validator'
+import { appleAuthValidator } from '#validators/auth_validator'
 
 export default class AuthController {
   private oauthService = new OAuthService()
@@ -68,46 +68,8 @@ export default class AuthController {
   }
 
   /**
-   * @google
-   * @summary Sign in with Google (mobile)
-   * @tag Auth
-   * @description Exchanges a Google ID token (from mobile SDK) for an API bearer token
-   * @requestBody {"idToken": "eyJ...", "fullName": "John Doe"}
-   * @responseBody 200 - {"user": {...}, "token": {"type": "bearer", "value": "...", "expiresAt": "..."}}
-   * @responseBody 400 - {"message": "Invalid Google token"}
-   * @responseBody 422 - Validation error
-   */
-  async google({ request, response }: HttpContext) {
-    const payload = await googleAuthValidator.validate(request.all())
-
-    const userData = await this.oauthService.verifyGoogleToken(payload.idToken)
-
-    if (payload.fullName && !userData.fullName) {
-      userData.fullName = payload.fullName
-    }
-
-    const user = await this.oauthService.findOrCreateUser('google', userData)
-    const token = await User.accessTokens.create(user)
-
-    return response.ok({
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl,
-        emailVerified: user.emailVerified,
-      },
-      token: {
-        type: 'bearer',
-        value: token.value!.release(),
-        expiresAt: token.expiresAt?.toISOString(),
-      },
-    })
-  }
-
-  /**
    * @apple
-   * @summary Sign in with Apple (mobile)
+   * @summary Sign in with Apple
    * @tag Auth
    * @description Exchanges an Apple ID token (from mobile SDK) for an API bearer token
    * @requestBody {"idToken": "eyJ...", "fullName": "John Doe", "authorizationCode": "..."}

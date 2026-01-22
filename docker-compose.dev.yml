@@ -10,6 +10,8 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/build
+      - /app/.adonisjs
     environment:
       - NODE_ENV=development
       - HOST=0.0.0.0
@@ -28,13 +30,16 @@ services:
       - APPLE_TEAM_ID=${APPLE_TEAM_ID:-dev}
       - APPLE_KEY_ID=${APPLE_KEY_ID:-dev}
       - APPLE_PRIVATE_KEY=${APPLE_PRIVATE_KEY:-dev}
-      # File watching inside Docker on macOS is flaky without polling
       - CHOKIDAR_USEPOLLING=true
-      - CHOKIDAR_INTERVAL=500
+      - CHOKIDAR_INTERVAL=1000
+      - WATCHPACK_POLLING=true
+      - NODE_OPTIONS=--watch
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    stdin_open: true
+    tty: true
 
   postgres:
     image: postgres:16-alpine
