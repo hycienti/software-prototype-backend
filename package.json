@@ -64,6 +64,7 @@
     "openai": "^6.16.0",
     "pg": "^8.17.1",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.8.0",
     "ws": "^8.19.0"
   },
   "hotHook": {
