@@ -39,4 +39,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   ELEVENLABS_VOICE_ID: Env.schema.string.optional(),
   ELEVENLABS_MODEL_ID: Env.schema.string.optional(),
   ELEVENLABS_STT_MODEL_ID: Env.schema.string.optional(),
+
+  RESEND_API_KEY: Env.schema.string.optional(),
+  RESEND_FROM_EMAIL: Env.schema.string.optional(),
+  RESEND_FROM_NAME: Env.schema.string.optional(),
 })

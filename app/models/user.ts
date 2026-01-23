@@ -2,8 +2,6 @@ import { DateTime } from 'luxon'
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
 
-export type OAuthProvider = 'google' | 'apple'
-
 export default class User extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
@@ -16,12 +14,6 @@ export default class User extends BaseModel {
 
   @column()
   declare avatarUrl: string | null
-
-  @column()
-  declare oauthProvider: OAuthProvider
-
-  @column()
-  declare oauthProviderId: string
 
   @column()
   declare emailVerified: boolean

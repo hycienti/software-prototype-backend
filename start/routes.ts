@@ -72,10 +72,12 @@ router
   .group(() => {
     router
       .group(() => {
-        router.get('/google', [AuthController, 'googleRedirect'])
-        router.get('/google/callback', [AuthController, 'googleCallback'])
-        router.post('/apple', [AuthController, 'apple'])
+        // Email/OTP authentication endpoints
+        router.post('/send-otp', [AuthController, 'sendOtp'])
+        router.post('/verify-otp', [AuthController, 'verifyOtp'])
+        router.post('/complete-signup', [AuthController, 'completeSignup'])
 
+        // Token management (requires authentication)
         router.post('/refresh', [AuthController, 'refresh']).use(middleware.auth())
         router.post('/logout', [AuthController, 'logout']).use(middleware.auth())
       })
