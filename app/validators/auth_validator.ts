@@ -27,7 +27,7 @@ export const verifyOtpValidator = vine.compile(
       .normalizeEmail()
       .minLength(3)
       .maxLength(254),
-    code: vine.string().trim().length(6).regex(/^\d{6}$/),
+    code: vine.string().trim().minLength(6).maxLength(6).regex(/^\d{6}$/),
   })
 )
 
