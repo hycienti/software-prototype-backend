@@ -18,6 +18,7 @@ const UsersController = () => import('#controllers/users_controller')
 const ConversationsController = () => import('#controllers/conversations_controller')
 const VoiceController = () => import('#controllers/voice_controller')
 const GratitudeController = () => import('#controllers/gratitude_controller')
+const MoodController = () => import('#controllers/mood_controller')
 const AchievementsController = () => import('#controllers/achievements_controller')
 
 router.get('/', async () => ({ status: 'ok', message: 'Haven API is running 🏃, lets gooo' }))
@@ -129,6 +130,20 @@ router
         router.delete('/:id', [GratitudeController, 'destroy'])
       })
       .prefix('/gratitudes')
+      .use(middleware.auth())
+
+    // Mood routes
+    router
+      .group(() => {
+        router.post('/', [MoodController, 'create'])
+        router.get('/', [MoodController, 'index'])
+        router.get('/streak', [MoodController, 'streak'])
+        router.get('/insights', [MoodController, 'insights'])
+        router.get('/:id', [MoodController, 'show'])
+        router.patch('/:id', [MoodController, 'update'])
+        router.delete('/:id', [MoodController, 'destroy'])
+      })
+      .prefix('/moods')
       .use(middleware.auth())
 
     // Achievements routes
