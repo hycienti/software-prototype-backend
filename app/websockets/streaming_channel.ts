@@ -41,21 +41,71 @@ export class StreamingChannel {
   /**
    * Handle stream message request
    * AdonisJS WebSocket routes events by method name matching the event
+   * The client sends: { event: 'message', data: {...} }
+   * AdonisJS will call onMessage() method
+   * 
+   * Alternative: Client can also send raw message and we handle it here
    */
   async onMessage(ctx: WsContext, payload: any) {
+    logger.info('WebSocket onMessage received', {
+      socketId: ctx.socket.id,
+      payloadType: typeof payload,
+      payloadKeys: payload ? Object.keys(payload) : [],
+      payloadString: typeof payload === 'string' 
+        ? payload.substring(0, 200) 
+        : JSON.stringify(payload).substring(0, 200),
+    })
+
+    // Handle string payload (raw JSON string)
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload)
+      } catch (error) {
+        logger.error('Failed to parse string payload as JSON', { error, payload })
+        ctx.socket.emit('stream:error', { message: 'Invalid message format' })
+        return
+      }
+    }
+
     // Handle both direct payload and wrapped event format
-    const messagePayload: StreamMessagePayload = payload.data || payload
+    // AdonisJS may pass the payload directly or wrapped
+    let messagePayload: StreamMessagePayload
+    
+    if (payload && payload.data) {
+      // Wrapped format: { event: 'message', data: {...} }
+      messagePayload = payload.data
+    } else if (payload && (payload.conversationId !== undefined || payload.message)) {
+      // Direct format: { conversationId, message }
+      messagePayload = payload
+    } else {
+      // Try to extract from any nested structure
+      messagePayload = payload as StreamMessagePayload
+    }
+
     const startTime = Date.now()
     const { conversationId, message } = messagePayload
     const userId = ctx.socket.data.userId
 
+    logger.info('WebSocket message parsed', {
+      userId,
+      conversationId,
+      hasMessage: !!message,
+      messageLength: message?.length || 0,
+      socketId: ctx.socket.id,
+    })
+
     if (!userId) {
+      logger.warn('WebSocket message rejected: No userId', { socketId: ctx.socket.id })
       ctx.socket.emit('stream:error', { message: 'Unauthorized' })
       return
     }
 
     try {
       if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        logger.warn('WebSocket message rejected: Invalid message', {
+          message: message?.substring(0, 50),
+          socketId: ctx.socket.id,
+        })
         ctx.socket.emit('stream:error', { message: 'Message is required' })
         return
       }
@@ -103,6 +153,11 @@ export class StreamingChannel {
       }))
 
       // Send start event
+      logger.debug('Emitting stream:start event', {
+        conversationId: conversation.id,
+        messageId: userMessage.id,
+        socketId: ctx.socket.id,
+      })
       ctx.socket.emit('stream:start', {
         conversationId: conversation.id,
         messageId: userMessage.id,
@@ -110,17 +165,37 @@ export class StreamingChannel {
 
       // Stream AI response
       let fullResponse = ''
+      let chunkCount = 0
+      logger.debug('Starting OpenAI streaming', { socketId: ctx.socket.id })
+      
       for await (const chunk of this.openaiService.generateStreamingResponse({
         messages: chatMessages,
         temperature: 0.7,
         maxTokens: 1000,
       })) {
         fullResponse += chunk
+        chunkCount++
+        
         // Send chunk to client in real-time
         ctx.socket.emit('stream:chunk', {
           content: chunk,
         })
+        
+        // Log every 10 chunks to avoid spam
+        if (chunkCount % 10 === 0) {
+          logger.debug('Streaming chunks', {
+            chunkCount,
+            totalLength: fullResponse.length,
+            socketId: ctx.socket.id,
+          })
+        }
       }
+      
+      logger.info('OpenAI streaming completed', {
+        chunkCount,
+        totalLength: fullResponse.length,
+        socketId: ctx.socket.id,
+      })
 
       // Analyze sentiment
       const sentimentAnalysis = await this.openaiService.analyzeSentiment(message)
@@ -147,6 +222,10 @@ export class StreamingChannel {
       await conversation.save()
 
       // Send completion event
+      logger.debug('Emitting stream:complete event', {
+        messageId: assistantMessage.id,
+        socketId: ctx.socket.id,
+      })
       ctx.socket.emit('stream:complete', {
         messageId: assistantMessage.id,
         sentiment: sentimentAnalysis,
