@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Mood from '#models/mood'
 import MoodService from '#services/mood_service'
+import AIInsightsService from '#services/ai_insights_service'
 import {
   createMoodValidator,
   updateMoodValidator,
@@ -10,6 +11,7 @@ import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
 
 const moodService = new MoodService()
+const aiInsightsService = new AIInsightsService()
 
 export default class MoodController {
   /**
@@ -44,6 +46,9 @@ export default class MoodController {
 
       // Check and update achievements
       await moodService.checkAndUpdateAchievements(user.id)
+
+      // Invalidate AI insights cache to regenerate on next request
+      await aiInsightsService.invalidateCache(user.id, 'mood')
 
       logger.info('Mood entry created', {
         userId: user.id,

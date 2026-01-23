@@ -2,12 +2,16 @@ import Mood from '#models/mood'
 import Achievement from '#models/achievement'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
+import AIInsightsService from '#services/ai_insights_service'
 
 export default class MoodService {
   /**
    * Get mood insights and analytics for a user
    */
-  async getMoodInsights(userId: number): Promise<{
+  async getMoodInsights(
+    userId: number,
+    includeAIInsights: boolean = true
+  ): Promise<{
     totalEntries: number
     averageIntensity: number
     moodDistribution: Array<{ mood: string; count: number; percentage: number }>
@@ -15,6 +19,12 @@ export default class MoodService {
     monthlyTrend: Array<{ month: string; averageIntensity: number; dominantMood: string }>
     patterns: Array<{ pattern: string; description: string; confidence: number }>
     streak: number
+    aiInsights?: {
+      weeklySummary: string
+      keyPatterns: string[]
+      emotionalInsights: string[]
+      supportiveSuggestions: string[]
+    }
   }> {
     try {
       const allMoods = await Mood.query().where('user_id', userId)
@@ -61,7 +71,7 @@ export default class MoodService {
       // Calculate streak
       const streak = await this.calculateStreak(userId)
 
-      return {
+      const baseInsights = {
         totalEntries: allMoods.length,
         averageIntensity: Math.round(averageIntensity * 10) / 10,
         moodDistribution,
@@ -70,6 +80,43 @@ export default class MoodService {
         patterns,
         streak,
       }
+
+      // Get AI insights if requested
+      if (includeAIInsights) {
+        try {
+          const aiInsightsService = new AIInsightsService()
+          const recentEntries = await aiInsightsService.getRecentMoodEntries(userId, 7)
+
+          const aiInsights = await aiInsightsService.getMoodInsights(userId, {
+            totalEntries: baseInsights.totalEntries,
+            currentStreak: streak,
+            averageIntensity: baseInsights.averageIntensity,
+            moodDistribution: baseInsights.moodDistribution,
+            weeklyTrend: baseInsights.weeklyTrend,
+            monthlyTrend: baseInsights.monthlyTrend,
+            patterns: baseInsights.patterns,
+            recentEntries,
+          })
+
+          return {
+            ...baseInsights,
+            aiInsights: {
+              weeklySummary: aiInsights.weeklySummary,
+              keyPatterns: aiInsights.keyPatterns,
+              emotionalInsights: aiInsights.emotionalInsights || [],
+              supportiveSuggestions: aiInsights.supportiveSuggestions || [],
+            },
+          }
+        } catch (error) {
+          logger.warn('Failed to get AI insights, returning base insights only', {
+            userId,
+            error,
+          })
+          // Return base insights even if AI fails
+        }
+      }
+
+      return baseInsights
     } catch (error) {
       logger.error('Error getting mood insights', { userId, error })
       throw error
