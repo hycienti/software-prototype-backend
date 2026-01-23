@@ -18,7 +18,7 @@ const UsersController = () => import('#controllers/users_controller')
 const ConversationsController = () => import('#controllers/conversations_controller')
 const VoiceController = () => import('#controllers/voice_controller')
 
-router.get('/', async () => ({ status: 'ok', message: 'Haven API is running' }))
+router.get('/', async () => ({ status: 'ok', message: 'Haven API is running 🏃, lets gooo' }))
 
 router.get('/docs/openapi.yml', async ({ response }) => {
   const specPath = new URL('../docs/openapi.yml', import.meta.url)
@@ -72,9 +72,8 @@ router
   .group(() => {
     router
       .group(() => {
-        router.get('/google/redirect', [AuthController, 'googleRedirect'])
+        router.get('/google', [AuthController, 'googleRedirect'])
         router.get('/google/callback', [AuthController, 'googleCallback'])
-        router.post('/google', [AuthController, 'google'])
         router.post('/apple', [AuthController, 'apple'])
 
         router.post('/refresh', [AuthController, 'refresh']).use(middleware.auth())
