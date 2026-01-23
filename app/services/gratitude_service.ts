@@ -2,6 +2,7 @@ import Gratitude from '#models/gratitude'
 import Achievement from '#models/achievement'
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
+import AIInsightsService from '#services/ai_insights_service'
 
 export default class GratitudeService {
   /**
@@ -54,7 +55,10 @@ export default class GratitudeService {
   /**
    * Get growth insights for a user
    */
-  async getGrowthInsights(userId: number): Promise<{
+  async getGrowthInsights(
+    userId: number,
+    includeAIInsights: boolean = true
+  ): Promise<{
     totalEntries: number
     currentStreak: number
     longestStreak: number
@@ -62,6 +66,12 @@ export default class GratitudeService {
     entriesLastMonth: number
     mostCommonThemes: Array<{ theme: string; count: number }>
     monthlyTrend: Array<{ month: string; count: number }>
+    aiInsights?: {
+      weeklySummary: string
+      keyPatterns: string[]
+      growthObservations: string[]
+      gentleSuggestions: string[]
+    }
   }> {
     try {
       const now = DateTime.now()
@@ -93,7 +103,7 @@ export default class GratitudeService {
 
       const currentStreak = await this.calculateStreak(userId)
 
-      return {
+      const baseInsights = {
         totalEntries: allGratitudes.length,
         currentStreak,
         longestStreak,
@@ -102,6 +112,37 @@ export default class GratitudeService {
         mostCommonThemes,
         monthlyTrend,
       }
+
+      // Get AI insights if requested
+      if (includeAIInsights) {
+        try {
+          const aiInsightsService = new AIInsightsService()
+          const recentEntries = await aiInsightsService.getRecentGratitudeEntries(userId, 7)
+
+          const aiInsights = await aiInsightsService.getGratitudeInsights(userId, {
+            ...baseInsights,
+            recentEntries,
+          })
+
+          return {
+            ...baseInsights,
+            aiInsights: {
+              weeklySummary: aiInsights.weeklySummary,
+              keyPatterns: aiInsights.keyPatterns,
+              growthObservations: aiInsights.growthObservations || [],
+              gentleSuggestions: aiInsights.gentleSuggestions || [],
+            },
+          }
+        } catch (error) {
+          logger.warn('Failed to get AI insights, returning base insights only', {
+            userId,
+            error,
+          })
+          // Return base insights even if AI fails
+        }
+      }
+
+      return baseInsights
     } catch (error) {
       logger.error('Error getting growth insights', { userId, error })
       throw error

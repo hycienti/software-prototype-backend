@@ -6,3 +6,5 @@
 export { THERAPY_SYSTEM_PROMPT } from './therapy_system_prompt.js'
 export { SENTIMENT_ANALYSIS_PROMPT } from './sentiment_analysis_prompt.js'
 export { getConversationTitlePrompt } from './conversation_title_prompt.js'
+export { GRATITUDE_INSIGHTS_PROMPT } from './gratitude_insights_prompt.js'
+export { MOOD_INSIGHTS_PROMPT } from './mood_insights_prompt.js'

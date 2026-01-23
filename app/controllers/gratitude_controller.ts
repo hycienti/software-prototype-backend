@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Gratitude from '#models/gratitude'
 import GratitudeService from '#services/gratitude_service'
 import QuotesService from '#services/quotes_service'
+import AIInsightsService from '#services/ai_insights_service'
 import {
   createGratitudeValidator,
   updateGratitudeValidator,
@@ -12,6 +13,7 @@ import { DateTime } from 'luxon'
 
 const gratitudeService = new GratitudeService()
 const quotesService = new QuotesService()
+const aiInsightsService = new AIInsightsService()
 
 export default class GratitudeController {
   /**
@@ -56,6 +58,9 @@ export default class GratitudeController {
 
       // Check and update achievements
       await gratitudeService.checkAndUpdateAchievements(user.id)
+
+      // Invalidate AI insights cache to regenerate on next request
+      await aiInsightsService.invalidateCache(user.id, 'gratitude')
 
       logger.info('Gratitude entry created', {
         userId: user.id,
