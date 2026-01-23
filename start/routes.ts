@@ -17,6 +17,8 @@ const AuthController = () => import('#controllers/auth_controller')
 const UsersController = () => import('#controllers/users_controller')
 const ConversationsController = () => import('#controllers/conversations_controller')
 const VoiceController = () => import('#controllers/voice_controller')
+const GratitudeController = () => import('#controllers/gratitude_controller')
+const AchievementsController = () => import('#controllers/achievements_controller')
 
 router.get('/', async () => ({ status: 'ok', message: 'Haven API is running 🏃, lets gooo' }))
 
@@ -112,6 +114,30 @@ router
         router.post('/tts', [VoiceController, 'textToSpeech'])
       })
       .prefix('/voice')
+      .use(middleware.auth())
+
+    // Gratitude routes
+    router
+      .group(() => {
+        router.post('/', [GratitudeController, 'create'])
+        router.get('/', [GratitudeController, 'index'])
+        router.get('/streak', [GratitudeController, 'streak'])
+        router.get('/insights', [GratitudeController, 'insights'])
+        router.get('/quotes/random', [GratitudeController, 'randomQuote'])
+        router.get('/:id', [GratitudeController, 'show'])
+        router.patch('/:id', [GratitudeController, 'update'])
+        router.delete('/:id', [GratitudeController, 'destroy'])
+      })
+      .prefix('/gratitudes')
+      .use(middleware.auth())
+
+    // Achievements routes
+    router
+      .group(() => {
+        router.get('/', [AchievementsController, 'index'])
+        router.get('/:id', [AchievementsController, 'show'])
+      })
+      .prefix('/achievements')
       .use(middleware.auth())
   })
   .prefix('/api/v1')
