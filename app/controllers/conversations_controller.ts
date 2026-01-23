@@ -105,7 +105,8 @@ export default class ConversationsController {
       // Update conversation title if it's the first message
       if (!conversation.title && previousMessages.length === 0) {
         // Generate a short title from the first message
-        const titlePrompt = `Generate a short title (max 50 characters) for this conversation: "${payload.message}"`
+        const { getConversationTitlePrompt } = await import('../prompts/index.js')
+        const titlePrompt = getConversationTitlePrompt(payload.message)
         try {
           const titleResponse = await this.openaiService.generateResponse({
             messages: [{ role: 'user', content: titlePrompt }],

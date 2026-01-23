@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
+import { THERAPY_SYSTEM_PROMPT, SENTIMENT_ANALYSIS_PROMPT } from '../prompts/index.js'
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
@@ -33,26 +34,10 @@ export default class OpenAIService {
    */
   async generateResponse(options: ChatCompletionOptions): Promise<string> {
     try {
-      const systemPrompt = `You are a compassionate, empathetic AI therapist assistant named Haven. Your role is to:
-- Provide supportive, non-judgmental responses
-- Use active listening techniques
-- Offer evidence-based therapeutic guidance
-- Detect crisis situations and escalate appropriately
-- Maintain professional boundaries
-- Use warm, natural language
-- Support users through difficult emotions
-
-Remember:
-- Never provide medical diagnoses
-- Always encourage professional help for serious issues
-- Be patient and understanding
-- Validate user feelings
-- Ask thoughtful follow-up questions`
-
       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         {
           role: 'system',
-          content: systemPrompt,
+          content: THERAPY_SYSTEM_PROMPT,
         },
         ...options.messages.map((msg) => ({
           role: msg.role,
@@ -89,26 +74,10 @@ Remember:
     options: ChatCompletionOptions
   ): AsyncGenerator<string, void, unknown> {
     try {
-      const systemPrompt = `You are a compassionate, empathetic AI therapist assistant named Haven. Your role is to:
-- Provide supportive, non-judgmental responses
-- Use active listening techniques
-- Offer evidence-based therapeutic guidance
-- Detect crisis situations and escalate appropriately
-- Maintain professional boundaries
-- Use warm, natural language
-- Support users through difficult emotions
-
-Remember:
-- Never provide medical diagnoses
-- Always encourage professional help for serious issues
-- Be patient and understanding
-- Validate user feelings
-- Ask thoughtful follow-up questions`
-
       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         {
           role: 'system',
-          content: systemPrompt,
+          content: THERAPY_SYSTEM_PROMPT,
         },
         ...options.messages.map((msg) => ({
           role: msg.role,
@@ -150,13 +119,7 @@ Remember:
         messages: [
           {
             role: 'system',
-            content: `Analyze the following message for sentiment and crisis indicators. 
-Return a JSON object with:
-- sentiment: "positive", "neutral", or "negative"
-- crisisIndicators: array of detected crisis keywords/phrases (e.g., ["suicidal ideation", "self-harm"])
-- confidence: number between 0 and 1
-
-Be conservative - only flag clear crisis indicators.`,
+            content: SENTIMENT_ANALYSIS_PROMPT,
           },
           {
             role: 'user',
