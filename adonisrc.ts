@@ -46,7 +46,6 @@ export default defineConfig({
     () => import('@adonisjs/lucid/database_provider'),
     () => import('@adonisjs/auth/auth_provider'),
     () => import('@adonisjs/ally/ally_provider'),
-    // () => import('@adonisjs/websocket/providers/WsProvider.js'),
   ],
 
   /*
@@ -60,7 +59,7 @@ export default defineConfig({
   preloads: [
     () => import('#start/routes'),
     () => import('#start/kernel'),
-    // () => import('#start/websocket'),
+    // Socket.IO is initialized in bin/server.ts after HTTP server starts
   ],
 
   /*

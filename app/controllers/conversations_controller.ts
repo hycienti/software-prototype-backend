@@ -173,7 +173,7 @@ export default class ConversationsController {
    * @summary Stream AI response for a message (SSE Fallback)
    * @tag Conversations
    * @description Server-Sent Events (SSE) endpoint for streaming responses.
-   * NOTE: WebSocket streaming at /streaming channel is preferred for better performance.
+   * NOTE: Socket.IO streaming at /streaming namespace is preferred for better performance.
    * This endpoint provides SSE streaming as a fallback option.
    * @param conversationId - Conversation ID
    * @queryParam message - User message to send
@@ -196,7 +196,7 @@ export default class ConversationsController {
         userId: user.id,
         conversationId,
         messageLength: message.length,
-        note: 'WebSocket streaming is preferred for better performance',
+        note: 'Socket.IO streaming is preferred for better performance',
       })
 
       // Get or create conversation
