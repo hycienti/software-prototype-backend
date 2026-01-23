@@ -14,13 +14,39 @@ export default class AuthController {
   private emailService = new EmailService()
 
   /**
-   * @sendOtp
-   * @summary Send OTP to email
-   * @description Sends a 6-digit OTP code to the provided email address
-   * @requestBody {"email": "user@example.com"}
-   * @responseBody 200 - {"message": "OTP sent successfully", "expiresIn": 600}
-   * @responseBody 422 - Validation error
-   * @responseBody 429 - Too many requests (rate limiting)
+   * @openapi
+   * /auth/send-otp:
+   *   post:
+   *     tags:
+   *       - Auth
+   *     summary: Send OTP to email
+   *     description: Sends a 6-digit OTP code to the provided email address.
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 example: user@example.com
+   *     responses:
+   *       200:
+   *         description: OTP sent successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                 expiresIn:
+   *                   type: integer
+   *       422:
+   *         description: Validation error
+   *       429:
+   *         description: Too many requests (rate limiting)
    */
   async sendOtp({ request, response }: HttpContext) {
     const { email } = await emailValidator.validate(request.all())
@@ -75,14 +101,51 @@ export default class AuthController {
   }
 
   /**
-   * @verifyOtp
-   * @summary Verify OTP code
-   * @description Verifies the OTP code and returns user info or indicates if signup is needed
-   * @requestBody {"email": "user@example.com", "code": "123456"}
-   * @responseBody 200 - {"user": {...}, "token": {...}, "requiresSignup": false}
-   * @responseBody 200 - {"requiresSignup": true, "email": "user@example.com"}
-   * @responseBody 400 - {"message": "Invalid or expired OTP"}
-   * @responseBody 422 - Validation error
+   * @openapi
+   * /auth/verify-otp:
+   *   post:
+   *     tags:
+   *       - Auth
+   *     summary: Verify OTP code
+   *     description: Verifies the OTP code and returns user info or indicates if signup is needed.
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 example: user@example.com
+   *               code:
+   *                 type: string
+   *                 example: "123456"
+   *     responses:
+   *       200:
+   *         description: OTP verified or signup required
+   *         content:
+   *           application/json:
+   *             schema:
+   *               oneOf:
+   *                 - type: object
+   *                   properties:
+   *                     user:
+   *                       type: object
+   *                     token:
+   *                       type: object
+   *                     requiresSignup:
+   *                       type: boolean
+   *                 - type: object
+   *                   properties:
+   *                     requiresSignup:
+   *                       type: boolean
+   *                     email:
+   *                       type: string
+   *       400:
+   *         description: Invalid or expired OTP
+   *       422:
+   *         description: Validation error
    */
   async verifyOtp({ request, response }: HttpContext) {
     const { email, code } = await verifyOtpValidator.validate(request.all())
@@ -156,13 +219,42 @@ export default class AuthController {
   }
 
   /**
-   * @completeSignup
-   * @summary Complete signup with fullname
-   * @description Completes the signup process for new users by saving their fullname
-   * @requestBody {"email": "user@example.com", "fullName": "John Doe"}
-   * @responseBody 200 - {"user": {...}, "token": {...}}
-   * @responseBody 400 - {"message": "User already exists or OTP not verified"}
-   * @responseBody 422 - Validation error
+   * @openapi
+   * /auth/complete-signup:
+   *   post:
+   *     tags:
+   *       - Auth
+   *     summary: Complete signup with fullname
+   *     description: Completes the signup process for new users by saving their fullname.
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 example: user@example.com
+   *               fullName:
+   *                 type: string
+   *                 example: John Doe
+   *     responses:
+   *       200:
+   *         description: Signup completed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 user:
+   *                   type: object
+   *                 token:
+   *                   type: object
+   *       400:
+   *         description: User already exists or OTP not verified
+   *       422:
+   *         description: Validation error
    */
   async completeSignup({ request, response }: HttpContext) {
     const { email, fullName } = await completeSignupValidator.validate(request.all())
@@ -217,11 +309,32 @@ export default class AuthController {
   }
 
   /**
-   * @refresh
-   * @summary Refresh access token
-   * @description Rotates the current bearer token (deletes old, issues new)
-   * @responseBody 200 - {"token": {"type": "bearer", "value": "...", "expiresAt": "..."}}
-   * @responseBody 401 - {"message": "Unauthorized"}
+   * @openapi
+   * /auth/refresh:
+   *   post:
+   *     tags:
+   *       - Auth
+   *     summary: Refresh access token
+   *     description: Rotates the current bearer token (deletes old, issues new).
+   *     responses:
+   *       200:
+   *         description: Token refreshed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 token:
+   *                   type: object
+   *                   properties:
+   *                     type:
+   *                       type: string
+   *                     value:
+   *                       type: string
+   *                     expiresAt:
+   *                       type: string
+   *       401:
+   *         description: Unauthorized
    */
   async refresh({ auth, response }: HttpContext) {
     const user = auth.user!
@@ -240,12 +353,25 @@ export default class AuthController {
   }
 
   /**
-   * @logout
-   * @summary Logout
-   * @tag Auth
-   * @description Invalidates the current bearer token
-   * @responseBody 200 - {"message": "Logged out successfully"}
-   * @responseBody 401 - {"message": "Unauthorized"}
+   * @openapi
+   * /auth/logout:
+   *   post:
+   *     tags:
+   *       - Auth
+   *     summary: Logout
+   *     description: Invalidates the current bearer token.
+   *     responses:
+   *       200:
+   *         description: Logged out successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *       401:
+   *         description: Unauthorized
    */
   async logout({ auth, response }: HttpContext) {
     const user = auth.user!

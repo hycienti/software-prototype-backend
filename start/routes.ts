@@ -21,7 +21,10 @@ const GratitudeController = () => import('#controllers/gratitude_controller')
 const MoodController = () => import('#controllers/mood_controller')
 const AchievementsController = () => import('#controllers/achievements_controller')
 
-router.get('/', async () => ({ status: 'ok', message: 'Haven API is running 🏃, lets gooo' }))
+router.get('/', async () => ({
+  status: 'ok',
+  message: 'Haven API is running 🏃, lets go to the moon 🚀',
+}))
 
 router.get('/docs/openapi.yml', async ({ response }) => {
   const specPath = new URL('../docs/openapi.yml', import.meta.url)
