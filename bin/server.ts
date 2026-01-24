@@ -11,7 +11,6 @@
 
 import 'reflect-metadata'
 import { Ignitor, prettyPrintError } from '@adonisjs/core'
-import { initializeSocketIO } from '#start/socketio'
 
 /**
  * URL to the application root. AdonisJS need it to resolve
@@ -39,10 +38,7 @@ new Ignitor(APP_ROOT, { importer: IMPORTER })
     app.listenIf(app.managedByPm2, 'SIGINT', () => app.terminate())
   })
   .httpServer()
-  .start((httpServer) => {
-    // Initialize Socket.IO after HTTP server starts
-    initializeSocketIO(httpServer)
-  })
+  .start()
   .catch((error) => {
     process.exitCode = 1
     prettyPrintError(error)

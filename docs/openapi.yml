@@ -13,139 +13,213 @@ servers:
 tags:
   - name: Auth
     description: Authentication and session endpoints
+  - name: Conversations
+    description: Chat and conversation management
+  - name: Realtime
+    description: Real-time event broadcasting via Pusher
 
 paths:
-    /api/v1/auth/send-otp:
-      post:
-        tags: [Auth]
-        summary: Send OTP to email
-        description: Sends a 6-digit OTP code to the provided email address.
-        operationId: authSendOtp
-        requestBody:
-          required: true
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  email:
-                    type: string
-                    format: email
-                    example: user@example.com
-        responses:
-          '200':
-            description: OTP sent successfully
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    message:
-                      type: string
-                      example: OTP sent successfully
-                    expiresIn:
-                      type: integer
-                      example: 600
-          '422':
-            description: Validation error
-          '429':
-            description: Too many requests (rate limiting)
+  /api/v1/conversations:
+    post:
+      tags: [Conversations]
+      summary: Send a message
+      description: |
+        Send a text message and get AI response.
+        Supports real-time streaming via Pusher.
 
-    /api/v1/auth/verify-otp:
-      post:
-        tags: [Auth]
-        summary: Verify OTP code
-        description: Verifies the OTP code and returns user info or indicates if signup is needed.
-        operationId: authVerifyOtp
-        requestBody:
-          required: true
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  email:
-                    type: string
-                    format: email
-                    example: user@example.com
-                  code:
-                    type: string
-                    example: '123456'
-        responses:
-          '200':
-            description: OTP verified or signup required
-            content:
-              application/json:
-                schema:
-                  oneOf:
-                    - type: object
-                      properties:
-                        user:
-                          $ref: '#/components/schemas/UserPublic'
-                        token:
-                          $ref: '#/components/schemas/Token'
-                        requiresSignup:
-                          type: boolean
-                          example: false
-                    - type: object
-                      properties:
-                        requiresSignup:
-                          type: boolean
-                          example: true
-                        email:
-                          type: string
-                          example: user@example.com
-                        message:
-                          type: string
-                          example: Please complete your signup by providing your full name
-          '400':
-            description: Invalid or expired OTP
-          '422':
-            description: Validation error
+        **Real-time Streaming:**
+        If `stream: true` is provided, the server will broadcast the AI response in chunks via Pusher.
 
-    /api/v1/auth/complete-signup:
-      post:
-        tags: [Auth]
-        summary: Complete signup with fullname
-        description: Completes the signup process for new users by saving their fullname.
-        operationId: authCompleteSignup
-        requestBody:
-          required: true
+        **Pusher Details:**
+        - **Channel:** `conversation-{conversationId}`
+        - **Events:**
+          - `stream:start`: `{ messageId: number }`
+          - `stream:chunk`: `{ content: string }`
+          - `stream:complete`: `{ messageId: number, conversationId: number }`
+          - `stream:error`: `{ message: string }`
+      operationId: conversationsSendMessage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  example: "How are you feeling today?"
+                conversationId:
+                  type: integer
+                  example: 1
+                mode:
+                  type: string
+                  enum: [text, voice]
+                  default: text
+                stream:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Message sent and AI response generated
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  email:
+                  conversation:
+                    $ref: '#/components/schemas/Conversation'
+                  message:
+                    $ref: '#/components/schemas/Message'
+                  response:
+                    $ref: '#/components/schemas/Message'
+                  sentiment:
+                    type: object
+                    properties:
+                      sentiment:
+                        type: string
+                      crisisIndicators:
+                        type: array
+                        items:
+                          type: string
+                      confidence:
+                        type: number
+        '401':
+          description: Unauthorized
+        '422':
+          description: Validation error
+    post:
+      tags: [Auth]
+      summary: Send OTP to email
+      description: Sends a 6-digit OTP code to the provided email address.
+      operationId: authSendOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+      responses:
+        '200':
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
                     type: string
-                    format: email
-                    example: user@example.com
-                  fullName:
-                    type: string
-                    example: John Doe
-        responses:
-          '200':
-            description: Signup completed
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    user:
-                      $ref: '#/components/schemas/UserPublic'
-                    token:
-                      $ref: '#/components/schemas/Token'
-          '400':
-            description: User already exists or OTP not verified
-          '422':
-            description: Validation error
+                    example: OTP sent successfully
+                  expiresIn:
+                    type: integer
+                    example: 600
+        '422':
+          description: Validation error
+        '429':
+          description: Too many requests (rate limiting)
+
+  /api/v1/auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify OTP code
+      description: Verifies the OTP code and returns user info or indicates if signup is needed.
+      operationId: authVerifyOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                code:
+                  type: string
+                  example: '123456'
+      responses:
+        '200':
+          description: OTP verified or signup required
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserPublic'
+                      token:
+                        $ref: '#/components/schemas/Token'
+                      requiresSignup:
+                        type: boolean
+                        example: false
+                  - type: object
+                    properties:
+                      requiresSignup:
+                        type: boolean
+                        example: true
+                      email:
+                        type: string
+                        example: user@example.com
+                      message:
+                        type: string
+                        example: Please complete your signup by providing your full name
+        '400':
+          description: Invalid or expired OTP
+        '422':
+          description: Validation error
+
+  /api/v1/auth/complete-signup:
+    post:
+      tags: [Auth]
+      summary: Complete signup with fullname
+      description: Completes the signup process for new users by saving their fullname.
+      operationId: authCompleteSignup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                fullName:
+                  type: string
+                  example: John Doe
+      responses:
+        '200':
+          description: Signup completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/UserPublic'
+                  token:
+                    $ref: '#/components/schemas/Token'
+        '400':
+          description: User already exists or OTP not verified
+        '422':
+          description: Validation error
   /api/v1/auth/google:
     get:
       tags: [Auth]
       summary: Redirect to Google OAuth
       description: |
         Initiates Google OAuth 2.0 flow by redirecting to Google's consent screen.
-        
+
         After user authenticates, Google redirects to `/api/v1/auth/google/callback` which returns the bearer token.
       operationId: authGoogleRedirect
       responses:
@@ -163,7 +237,7 @@ paths:
       summary: Google OAuth callback
       description: |
         Handles the callback from Google OAuth after user authentication.
-        
+
         This endpoint is called by Google after user grants permissions.
         Returns user information and bearer token.
       operationId: authGoogleCallback
@@ -249,6 +323,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /socket.io:
+    get:
+      tags: [Chat]
+      summary: Socket.IO Real-time Chat
+      description: |
+        Real-time chat and streaming AI responses using Socket.IO.
+
+        **Namespace:** `/streaming`
+
+        **Authentication:**
+        Requires `token` in the connection query or `auth` object. The token should be the one returned from `/auth/verify-otp` or `/auth/complete-signup`.
+
+        **Connection Example (JS):**
+        ```javascript
+        const socket = io('http://localhost:3333/streaming', {
+          auth: { token: 'YOUR_TOKEN' }
+        });
+        ```
+
+        **Events:**
+        - `message` (emit): Send a message. Payload: `{ conversationId?: number, message: string }`
+        - `stream:start` (listen): Fired when AI starts generating response.
+        - `stream:chunk` (listen): Fired for each chunk of AI response. Payload: `{ content: string }`
+        - `stream:complete` (listen): Fired when AI response is finished. Payload: `{ conversationId: number, messageId: number }`
+        - `stream:error` (listen): Fired on errors. Payload: `{ message: string }`
+      responses:
+        '101':
+          description: Switching Protocols to WebSocket
 
   /api/v1/auth/refresh:
     post:
