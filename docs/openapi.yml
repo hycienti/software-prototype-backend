@@ -572,6 +572,23 @@ paths:
         '400':
           description: Invalid or expired OTP
 
+  /api/v1/therapist/auth/specialties:
+    get:
+      tags: [Therapist Auth]
+      summary: List all available specialties
+      description: Returns a list of all professional specialties available for therapists.
+      operationId: therapistAuthSpecialties
+      responses:
+        '200':
+          description: A list of specialties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example: [Anxiety, Depression, CBT]
+
   /api/v1/therapist/auth/onboard:
     post:
       tags: [Therapist Auth]
