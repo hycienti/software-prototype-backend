@@ -27,7 +27,6 @@ export default class TherapistsController {
   async sendOtp({ request, response }: HttpContext) {
     const { email } = await emailValidator.validate(request.all())
 
-
     const recentOtp = await Otp.query()
       .where('email', email)
       .where('created_at', '>', DateTime.now().minus({ seconds: 60 }).toSQL()!)

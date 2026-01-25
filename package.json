@@ -38,8 +38,8 @@
     "#enums/*": "./app/enums/*.js"
   },
   "devDependencies": {
-    "@adonisjs/assembler": "^7.8.2",
-    "@adonisjs/eslint-config": "^2.0.0",
+    "@adonisjs/assembler": "latest",
+    "@adonisjs/eslint-config": "latest",
     "@adonisjs/prettier-config": "^1.4.4",
     "@adonisjs/tsconfig": "^1.4.0",
     "@japa/assert": "^4.0.1",
@@ -59,8 +59,12 @@
     "@adonisjs/ally": "^5.1.1",
     "@adonisjs/auth": "^9.5.1",
     "@adonisjs/core": "^6.18.0",
+    "@adonisjs/drive": "^3.4.1",
     "@adonisjs/lucid": "^21.8.2",
+    "@aws-sdk/client-s3": "^3.975.0",
+    "@aws-sdk/s3-request-presigner": "^3.975.0",
     "@elevenlabs/elevenlabs-js": "^2.32.0",
+    "@google-cloud/storage": "^7.18.0",
     "@vinejs/vine": "^4.2.0",
     "adonis-autoswagger": "^3.73.0",
     "luxon": "^3.7.2",
