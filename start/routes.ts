@@ -22,6 +22,7 @@ const MoodController = () => import('#controllers/mood_controller')
 const AchievementsController = () => import('#controllers/achievements_controller')
 const TherapistsController = () => import('#controllers/therapists_controller')
 const SessionsController = () => import('#controllers/sessions_controller')
+const NotificationsController = () => import('#controllers/notifications_controller')
 
 router.get('/', async () => ({
   status: 'ok',
@@ -184,5 +185,16 @@ router
           .use(middleware.auth({ guards: ['therapist'] }))
       })
       .prefix('/sessions')
+
+    // Notifications routes
+    router
+      .group(() => {
+        router.get('/', [NotificationsController, 'index'])
+        router.patch('/mark-all-read', [NotificationsController, 'markAllAsRead'])
+        router.patch('/:id', [NotificationsController, 'update'])
+        router.delete('/:id', [NotificationsController, 'destroy'])
+      })
+      .prefix('/notifications')
+      .use(middleware.auth())
   })
   .prefix('/api/v1')

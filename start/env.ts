@@ -50,4 +50,21 @@ export default await Env.create(new URL('../', import.meta.url), {
   PUSHER_SECRET: Env.schema.string.optional(),
   PUSHER_CLUSTER: Env.schema.string.optional(),
   PUSHER_USE_TLS: Env.schema.boolean.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring the drive package
+  |----------------------------------------------------------
+  */
+  DRIVE_DISK: Env.schema.enum(['fs', 's3', 'r2', 'gcs'] as const),
+  AWS_ACCESS_KEY_ID: Env.schema.string.optional(),
+  AWS_SECRET_ACCESS_KEY: Env.schema.string.optional(),
+  AWS_REGION: Env.schema.string.optional(),
+  S3_BUCKET: Env.schema.string.optional(),
+  R2_KEY: Env.schema.string.optional(),
+  R2_SECRET: Env.schema.string.optional(),
+  R2_BUCKET: Env.schema.string.optional(),
+  R2_ENDPOINT: Env.schema.string.optional(),
+  GCS_KEY: Env.schema.string.optional(),
+  GCS_BUCKET: Env.schema.string.optional(),
 })
