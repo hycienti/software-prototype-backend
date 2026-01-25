@@ -46,7 +46,7 @@ export default class Therapist extends BaseModel {
   static accessTokens = DbAccessTokensProvider.forModel(Therapist, {
     expiresIn: '30 days',
     prefix: 'oat_',
-    table: 'access_tokens',
+    table: 'auth_access_tokens',
     type: 'auth_token',
   })
 }
