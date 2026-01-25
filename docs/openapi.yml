@@ -13,6 +13,8 @@ servers:
 tags:
   - name: Auth
     description: Authentication and session endpoints
+  - name: Therapist Auth
+    description: Therapist Authentication and onboarding endpoints
   - name: Conversations
     description: Chat and conversation management
   - name: Realtime
@@ -103,11 +105,16 @@ paths:
           application/json:
             schema:
               type: object
+              required: [email]
               properties:
                 email:
                   type: string
                   format: email
                   example: user@example.com
+            examples:
+              default:
+                value:
+                  email: user@example.com
       responses:
         '200':
           description: OTP sent successfully
@@ -122,6 +129,11 @@ paths:
                   expiresIn:
                     type: integer
                     example: 600
+              examples:
+                default:
+                  value:
+                    message: OTP sent successfully
+                    expiresIn: 600
         '422':
           description: Validation error
         '429':
@@ -139,6 +151,7 @@ paths:
           application/json:
             schema:
               type: object
+              required: [email, code]
               properties:
                 email:
                   type: string
@@ -147,6 +160,11 @@ paths:
                 code:
                   type: string
                   example: '123456'
+            examples:
+              default:
+                value:
+                  email: user@example.com
+                  code: '123456'
       responses:
         '200':
           description: OTP verified or signup required
@@ -174,6 +192,27 @@ paths:
                       message:
                         type: string
                         example: Please complete your signup by providing your full name
+              examples:
+                success:
+                  summary: Login successful
+                  value:
+                    user:
+                      id: 1
+                      email: user@example.com
+                      fullName: Ada Lovelace
+                      avatarUrl: https://cdn.haven.app/avatar.png
+                      emailVerified: true
+                    token:
+                      type: bearer
+                      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      expiresAt: '2026-01-23T12:00:00.000Z'
+                    requiresSignup: false
+                signupRequired:
+                  summary: Signup required
+                  value:
+                    requiresSignup: true
+                    email: user@example.com
+                    message: Please complete your signup by providing your full name
         '400':
           description: Invalid or expired OTP
         '422':
@@ -191,6 +230,7 @@ paths:
           application/json:
             schema:
               type: object
+              required: [email, fullName]
               properties:
                 email:
                   type: string
@@ -199,6 +239,11 @@ paths:
                 fullName:
                   type: string
                   example: John Doe
+            examples:
+              default:
+                value:
+                  email: user@example.com
+                  fullName: John Doe
       responses:
         '200':
           description: Signup completed
@@ -211,6 +256,19 @@ paths:
                     $ref: '#/components/schemas/UserPublic'
                   token:
                     $ref: '#/components/schemas/Token'
+              examples:
+                default:
+                  value:
+                    user:
+                      id: 1
+                      email: user@example.com
+                      fullName: John Doe
+                      avatarUrl: null
+                      emailVerified: true
+                    token:
+                      type: bearer
+                      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      expiresAt: '2026-01-23T12:00:00.000Z'
         '400':
           description: User already exists or OTP not verified
         '422':
@@ -250,18 +308,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+              examples:
+                default:
+                  value:
+                    user:
+                      id: 1
+                      email: user@example.com
+                      fullName: Ada Lovelace
+                      avatarUrl: https://cdn.haven.app/avatar.png
+                      emailVerified: true
+                    token:
+                      type: bearer
+                      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      expiresAt: '2026-01-23T12:00:00.000Z'
         '400':
           description: OAuth error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                default:
+                  value:
+                    message: OAuth error
         '401':
           description: Access denied or invalid OAuth state
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                default:
+                  value:
+                    message: Access denied
 
   /api/v1/auth/apple:
     post:
@@ -319,12 +398,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MeResponse'
+              examples:
+                default:
+                  value:
+                    user:
+                      id: 1
+                      email: user@example.com
+                      fullName: Ada Lovelace
+                      avatarUrl: https://cdn.haven.app/avatar.png
+                      emailVerified: true
+                      lastLoginAt: '2026-01-23T11:00:00.000Z'
+                      createdAt: '2026-01-01T10:00:00.000Z'
         '401':
           description: Missing/invalid bearer token
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                default:
+                  value:
+                    message: Unauthorized
 
   /api/v1/auth/refresh:
     post:
@@ -345,12 +439,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RefreshResponse'
+              examples:
+                default:
+                  value:
+                    token:
+                      type: bearer
+                      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      expiresAt: '2026-01-23T12:00:00.000Z'
         '401':
           description: Missing/invalid bearer token
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                default:
+                  value:
+                    message: Unauthorized
 
   /api/v1/auth/logout:
     post:
@@ -368,12 +473,151 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LogoutResponse'
+              examples:
+                default:
+                  value:
+                    message: Logged out successfully
         '401':
           description: Missing/invalid bearer token
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                default:
+                  value:
+                    message: Unauthorized
+
+  /api/v1/therapist/auth/send-otp:
+    post:
+      tags: [Therapist Auth]
+      summary: Send OTP to therapist email
+      description: Sends a 6-digit OTP code to the provided therapist email address.
+      operationId: therapistAuthSendOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: therapist@example.com
+      responses:
+        '200':
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: OTP sent successfully
+                  expiresIn:
+                    type: integer
+                    example: 600
+
+  /api/v1/therapist/auth/verify-otp:
+    post:
+      tags: [Therapist Auth]
+      summary: Verify therapist OTP code
+      description: Verifies the OTP code and returns therapist info or indicates if onboarding is needed.
+      operationId: therapistAuthVerifyOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: therapist@example.com
+                code:
+                  type: string
+                  example: '123456'
+      responses:
+        '200':
+          description: OTP verified or onboarding required
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      therapist:
+                        $ref: '#/components/schemas/TherapistPublic'
+                      token:
+                        $ref: '#/components/schemas/Token'
+                      requiresOnboarding:
+                        type: boolean
+                        example: false
+                  - type: object
+                    properties:
+                      requiresOnboarding:
+                        type: boolean
+                        example: true
+                      email:
+                        type: string
+                        example: therapist@example.com
+                      message:
+                        type: string
+                        example: Please complete your onboarding by providing your professional details
+        '400':
+          description: Invalid or expired OTP
+
+  /api/v1/therapist/auth/onboard:
+    post:
+      tags: [Therapist Auth]
+      summary: Complete therapist onboarding
+      description: Completes the onboarding process for new therapists by saving their professional details.
+      operationId: therapistAuthOnboard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TherapistOnboardRequest'
+      responses:
+        '200':
+          description: Onboarding completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  therapist:
+                    $ref: '#/components/schemas/TherapistPublic'
+                  token:
+                    $ref: '#/components/schemas/Token'
+        '400':
+          description: Therapist already exists or OTP not verified
+
+  /api/v1/therapist/auth/me:
+    get:
+      tags: [Therapist Auth]
+      summary: Get current therapist profile
+      operationId: therapistAuthMe
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current therapist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  therapist:
+                    $ref: '#/components/schemas/TherapistMe'
+        '401':
+          description: Missing/invalid bearer token
 
 components:
   securitySchemes:
@@ -427,13 +671,16 @@ components:
         idToken:
           type: string
           description: Apple ID token (JWT)
+          example: 'eyJraWQiOiIxQTJCNEMzRCIsImFsZyI6IlJTMjU2In0...'
         fullName:
           type: string
           nullable: true
+          example: 'Ada Lovelace'
         authorizationCode:
           type: string
           nullable: true
           description: Presently unused by the API, accepted for future Apple flows
+          example: 'c9b2a0c2c9d14f7a9c...'
 
     UserPublic:
       type: object
@@ -474,6 +721,82 @@ components:
             createdAt:
               type: string
               format: date-time
+
+    TherapistPublic:
+      type: object
+      additionalProperties: false
+      required: [id, email, fullName, professionalTitle, emailVerified]
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          format: email
+          example: therapist@example.com
+        fullName:
+          type: string
+          example: Dr. Sarah Mitchell
+        professionalTitle:
+          type: string
+          example: Psychologist, LCSW
+        specialties:
+          type: array
+          items:
+            type: string
+          example: [Anxiety, Depression]
+        emailVerified:
+          type: boolean
+          example: true
+
+    TherapistMe:
+      allOf:
+        - $ref: '#/components/schemas/TherapistPublic'
+        - type: object
+          properties:
+            licenseUrl:
+              type: string
+              format: uri
+              nullable: true
+            identityUrl:
+              type: string
+              format: uri
+              nullable: true
+            lastLoginAt:
+              type: string
+              format: date-time
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+
+    TherapistOnboardRequest:
+      type: object
+      required: [email, fullName, professionalTitle, specialties]
+      properties:
+        email:
+          type: string
+          format: email
+          example: therapist@example.com
+        fullName:
+          type: string
+          example: Dr. Sarah Mitchell
+        professionalTitle:
+          type: string
+          example: Psychologist, LCSW
+        licenseUrl:
+          type: string
+          format: uri
+          example: https://example.com/license.pdf
+        identityUrl:
+          type: string
+          format: uri
+          example: https://example.com/id.pdf
+        specialties:
+          type: array
+          items:
+            type: string
+          example: [Anxiety, Depression]
 
     Token:
       type: object

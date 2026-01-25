@@ -20,6 +20,7 @@ const VoiceController = () => import('#controllers/voice_controller')
 const GratitudeController = () => import('#controllers/gratitude_controller')
 const MoodController = () => import('#controllers/mood_controller')
 const AchievementsController = () => import('#controllers/achievements_controller')
+const TherapistsController = () => import('#controllers/therapists_controller')
 
 router.get('/', async () => ({
   status: 'ok',
@@ -46,7 +47,7 @@ router.get('/docs/static', async ({ response }) => {
     <title>Havens API Docs</title>
     <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
     <style>
-      body { margin: 0; background: #0b1220; }
+
       .swagger-ui .topbar { display: none; }
     </style>
   </head>
@@ -88,6 +89,16 @@ router
         router.post('/logout', [AuthController, 'logout']).use(middleware.auth())
       })
       .prefix('/auth')
+
+    // Therapist Auth routes
+    router
+      .group(() => {
+        router.post('/send-otp', [TherapistsController, 'sendOtp'])
+        router.post('/verify-otp', [TherapistsController, 'verifyOtp'])
+        router.post('/onboard', [TherapistsController, 'onboard'])
+        router.get('/me', [TherapistsController, 'me']).use(middleware.auth({ guards: ['therapist'] }))
+      })
+      .prefix('/therapist/auth')
 
     // User profile routes
     router

@@ -7,7 +7,7 @@ export default class UsersController {
    * @me
    * @summary Get current user profile
    * @description Returns the authenticated user's profile information
-   * @responseBody 200 - {"user": {"id": 1, "email": "user@example.com", "fullName": "John Doe", "avatarUrl": "https://...", "emailVerified": true, "lastLoginAt": "2026-01-19T00:00:00.000Z", "createdAt": "2026-01-19T00:00:00.000Z"}}
+   * @responseBody 200 - {"user": {"id": 1, "email": "user@example.com", "fullName": "Ada Lovelace", "avatarUrl": "https://cdn.haven.app/avatar.png", "emailVerified": true, "lastLoginAt": "2026-01-23T11:00:00.000Z", "createdAt": "2026-01-01T10:00:00.000Z"}}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
   async me({ auth, response }: HttpContext) {
