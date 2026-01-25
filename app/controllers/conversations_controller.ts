@@ -221,9 +221,7 @@ export default class ConversationsController {
   async getHistory({ request, response, auth }: HttpContext) {
     try {
       const user = auth.user!
-      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(
-        request.qs()
-      )
+      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(request.qs())
 
       const conversations = await Conversation.query()
         .where('user_id', user.id)
@@ -289,9 +287,7 @@ export default class ConversationsController {
     try {
       const user = auth.user!
       const conversationId = Number(params.id)
-      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(
-        request.qs()
-      )
+      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(request.qs())
 
       const conversation = await Conversation.query()
         .where('id', conversationId)
@@ -313,13 +309,16 @@ export default class ConversationsController {
           lastMessageAt: conversation.lastMessageAt,
           createdAt: conversation.createdAt,
         },
-        messages: messages.all().reverse().map((msg) => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          metadata: msg.metadata,
-          createdAt: msg.createdAt,
-        })),
+        messages: messages
+          .all()
+          .reverse()
+          .map((msg) => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            metadata: msg.metadata,
+            createdAt: msg.createdAt,
+          })),
         pagination: {
           page: messages.currentPage,
           perPage: messages.perPage,

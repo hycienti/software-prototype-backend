@@ -31,9 +31,7 @@ export default class GratitudeController {
       const payload = await createGratitudeValidator.validate(request.all())
 
       // Use provided date or default to today
-      const entryDate = payload.entryDate
-        ? DateTime.fromJSDate(payload.entryDate)
-        : DateTime.now()
+      const entryDate = payload.entryDate ? DateTime.fromJSDate(payload.entryDate) : DateTime.now()
 
       // Check if entry already exists for this date
       const existingEntry = await Gratitude.query()
@@ -104,9 +102,7 @@ export default class GratitudeController {
       const page = payload.page || 1
       const limit = Math.min(payload.limit || 20, 100)
 
-      const query = Gratitude.query()
-        .where('user_id', user.id)
-        .orderBy('entry_date', 'desc')
+      const query = Gratitude.query().where('user_id', user.id).orderBy('entry_date', 'desc')
 
       // Apply date filters if provided
       if (payload.startDate) {

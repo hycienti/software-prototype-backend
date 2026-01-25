@@ -66,10 +66,7 @@ export default class AuthController {
     }
 
     // Invalidate any existing unverified OTPs for this email
-    await Otp.query()
-      .where('email', email)
-      .where('verified', false)
-      .update({ verified: true })
+    await Otp.query().where('email', email).where('verified', false).update({ verified: true })
 
     // Generate 6-digit OTP
     const code = crypto.randomInt(100000, 999999).toString()
@@ -194,10 +191,12 @@ export default class AuthController {
     }
 
     // Existing user - update last login and create token
-    await user.merge({
-      emailVerified: true,
-      lastLoginAt: DateTime.now(),
-    }).save()
+    await user
+      .merge({
+        emailVerified: true,
+        lastLoginAt: DateTime.now(),
+      })
+      .save()
 
     const token = await User.accessTokens.create(user)
 

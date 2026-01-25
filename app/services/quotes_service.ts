@@ -20,7 +20,7 @@ const FALLBACK_QUOTES = [
     author: 'Cicero',
   },
   {
-    text: 'Be thankful for what you have; you\'ll end up having more. If you concentrate on what you don\'t have, you will never, ever have enough.',
+    text: "Be thankful for what you have; you'll end up having more. If you concentrate on what you don't have, you will never, ever have enough.",
     author: 'Oprah Winfrey',
   },
   {
@@ -40,7 +40,7 @@ const FALLBACK_QUOTES = [
     author: 'Dalai Lama',
   },
   {
-    text: 'Gratitude is a powerful catalyst for happiness. It\'s the spark that lights a fire of joy in your soul.',
+    text: "Gratitude is a powerful catalyst for happiness. It's the spark that lights a fire of joy in your soul.",
     author: 'Amy Collette',
   },
   {
@@ -115,7 +115,7 @@ export default class QuotesService {
       // Try to fetch from API with inspirational/gratitude-related tags
       const tags = ['gratitude', 'inspirational', 'wisdom', 'happiness', 'motivational']
       const randomTag = tags[Math.floor(Math.random() * tags.length)]
-      
+
       // Create abort controller for timeout
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
@@ -125,7 +125,7 @@ export default class QuotesService {
         {
           method: 'GET',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
           },
           signal: controller.signal,
         }
@@ -151,8 +151,8 @@ export default class QuotesService {
 
       return quote
     } catch (error) {
-      logger.warn('Failed to fetch quote from API, using fallback', { 
-        error: error instanceof Error ? error.message : String(error) 
+      logger.warn('Failed to fetch quote from API, using fallback', {
+        error: error instanceof Error ? error.message : String(error),
       })
 
       // Try to return from cache if available and recent
@@ -184,9 +184,7 @@ export default class QuotesService {
    */
   private updateCache(quote: { text: string; author: string }): void {
     // Add to cache if not already present
-    const exists = this.quoteCache.some(
-      (q) => q.text === quote.text && q.author === quote.author
-    )
+    const exists = this.quoteCache.some((q) => q.text === quote.text && q.author === quote.author)
 
     if (!exists) {
       this.quoteCache.push(quote)
@@ -212,14 +210,11 @@ export default class QuotesService {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 5000)
 
-        const response = await fetch(
-          `${this.QUOTABLE_API_BASE}/random?tags=${tag}&maxLength=200`,
-          {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-            signal: controller.signal,
-          }
-        )
+        const response = await fetch(`${this.QUOTABLE_API_BASE}/random?tags=${tag}&maxLength=200`, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        })
 
         clearTimeout(timeoutId)
 

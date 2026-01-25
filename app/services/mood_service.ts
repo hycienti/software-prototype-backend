@@ -137,20 +137,18 @@ export default class MoodService {
       const weekStart = now.minus({ weeks: i }).startOf('week')
       const weekEnd = weekStart.endOf('week')
 
-      const weekMoods = moods.filter(
-        (m) => m.entryDate >= weekStart && m.entryDate <= weekEnd
-      )
+      const weekMoods = moods.filter((m) => m.entryDate >= weekStart && m.entryDate <= weekEnd)
 
       if (weekMoods.length > 0) {
-        const avgIntensity =
-          weekMoods.reduce((sum, m) => sum + m.intensity, 0) / weekMoods.length
+        const avgIntensity = weekMoods.reduce((sum, m) => sum + m.intensity, 0) / weekMoods.length
 
         const moodCounts: Record<string, number> = {}
         weekMoods.forEach((m) => {
           moodCounts[m.mood] = (moodCounts[m.mood] || 0) + 1
         })
 
-        const dominantMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown'
+        const dominantMood =
+          Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown'
 
         trend.push({
           week: weekStart.toFormat('MMM d'),
@@ -183,20 +181,18 @@ export default class MoodService {
       const monthStart = now.minus({ months: i }).startOf('month')
       const monthEnd = monthStart.endOf('month')
 
-      const monthMoods = moods.filter(
-        (m) => m.entryDate >= monthStart && m.entryDate <= monthEnd
-      )
+      const monthMoods = moods.filter((m) => m.entryDate >= monthStart && m.entryDate <= monthEnd)
 
       if (monthMoods.length > 0) {
-        const avgIntensity =
-          monthMoods.reduce((sum, m) => sum + m.intensity, 0) / monthMoods.length
+        const avgIntensity = monthMoods.reduce((sum, m) => sum + m.intensity, 0) / monthMoods.length
 
         const moodCounts: Record<string, number> = {}
         monthMoods.forEach((m) => {
           moodCounts[m.mood] = (moodCounts[m.mood] || 0) + 1
         })
 
-        const dominantMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown'
+        const dominantMood =
+          Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown'
 
         trend.push({
           month: monthStart.toFormat('MMM yyyy'),
@@ -218,7 +214,9 @@ export default class MoodService {
   /**
    * Detect patterns in mood entries
    */
-  private detectPatterns(moods: Mood[]): Array<{ pattern: string; description: string; confidence: number }> {
+  private detectPatterns(
+    moods: Mood[]
+  ): Array<{ pattern: string; description: string; confidence: number }> {
     const patterns: Array<{ pattern: string; description: string; confidence: number }> = []
 
     if (moods.length < 7) {
@@ -294,9 +292,7 @@ export default class MoodService {
       let currentDate = DateTime.now().startOf('day')
 
       // Check if there's an entry for today
-      const todayEntry = moods.find(
-        (m) => m.entryDate.toISODate() === currentDate.toISODate()
-      )
+      const todayEntry = moods.find((m) => m.entryDate.toISODate() === currentDate.toISODate())
 
       if (!todayEntry) {
         // If no entry today, start from yesterday
@@ -329,10 +325,7 @@ export default class MoodService {
   async checkAndUpdateAchievements(userId: number): Promise<Achievement[]> {
     try {
       const streak = await this.calculateStreak(userId)
-      const totalEntries = await Mood.query()
-        .where('user_id', userId)
-        .count('* as total')
-        .first()
+      const totalEntries = await Mood.query().where('user_id', userId).count('* as total').first()
 
       const entryCount = Number(totalEntries?.$extras.total || 0)
 

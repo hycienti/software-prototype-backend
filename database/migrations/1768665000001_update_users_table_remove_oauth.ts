@@ -8,7 +8,7 @@ export default class extends BaseSchema {
       // Remove OAuth-related columns
       table.dropColumn('oauth_provider')
       table.dropColumn('oauth_provider_id')
-      
+
       // Ensure email_verified exists (it should already)
       // Add full_name if it doesn't exist (it should already)
     })
