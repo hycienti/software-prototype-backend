@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import { Specialty } from '#enums/specialty'
 
 /**
  * Validator for email submission (initiate OTP flow)
@@ -50,5 +51,19 @@ export const updateProfileValidator = vine.compile(
   vine.object({
     fullName: vine.string().trim().minLength(1).maxLength(255).optional(),
     avatarUrl: vine.string().trim().url().optional(),
+  })
+)
+
+/**
+ * Validator for therapist onboarding
+ */
+export const therapistOnboardingValidator = vine.compile(
+  vine.object({
+    email: vine.string().trim().email().normalizeEmail().minLength(3).maxLength(254),
+    fullName: vine.string().trim().minLength(1).maxLength(255),
+    professionalTitle: vine.string().trim().minLength(1).maxLength(255),
+    licenseUrl: vine.string().trim().url().optional(),
+    identityUrl: vine.string().trim().url().optional(),
+    specialties: vine.array(vine.enum(Specialty)).minLength(1),
   })
 )
