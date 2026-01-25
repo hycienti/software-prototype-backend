@@ -29,9 +29,7 @@ export default class MoodController {
       const payload = await createMoodValidator.validate(request.all())
 
       // Use provided date or default to today
-      const entryDate = payload.entryDate
-        ? DateTime.fromJSDate(payload.entryDate)
-        : DateTime.now()
+      const entryDate = payload.entryDate ? DateTime.fromJSDate(payload.entryDate) : DateTime.now()
 
       const mood = await Mood.create({
         userId: user.id,
@@ -152,10 +150,7 @@ export default class MoodController {
   async show({ auth, params, response }: HttpContext) {
     try {
       const user = auth.user!
-      const mood = await Mood.query()
-        .where('id', params.id)
-        .where('user_id', user.id)
-        .firstOrFail()
+      const mood = await Mood.query().where('id', params.id).where('user_id', user.id).firstOrFail()
 
       return response.ok({
         mood: {
@@ -191,10 +186,7 @@ export default class MoodController {
       const user = auth.user!
       const payload = await updateMoodValidator.validate(request.all())
 
-      const mood = await Mood.query()
-        .where('id', params.id)
-        .where('user_id', user.id)
-        .firstOrFail()
+      const mood = await Mood.query().where('id', params.id).where('user_id', user.id).firstOrFail()
 
       if (payload.mood) {
         mood.mood = payload.mood
@@ -253,10 +245,7 @@ export default class MoodController {
   async destroy({ auth, params, response }: HttpContext) {
     try {
       const user = auth.user!
-      const mood = await Mood.query()
-        .where('id', params.id)
-        .where('user_id', user.id)
-        .firstOrFail()
+      const mood = await Mood.query().where('id', params.id).where('user_id', user.id).firstOrFail()
 
       await mood.delete()
 

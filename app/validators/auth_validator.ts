@@ -5,13 +5,7 @@ import vine from '@vinejs/vine'
  */
 export const emailValidator = vine.compile(
   vine.object({
-    email: vine
-      .string()
-      .trim()
-      .email()
-      .normalizeEmail()
-      .minLength(3)
-      .maxLength(254),
+    email: vine.string().trim().email().normalizeEmail().minLength(3).maxLength(254),
   })
 )
 
@@ -20,14 +14,13 @@ export const emailValidator = vine.compile(
  */
 export const verifyOtpValidator = vine.compile(
   vine.object({
-    email: vine
+    email: vine.string().trim().email().normalizeEmail().minLength(3).maxLength(254),
+    code: vine
       .string()
       .trim()
-      .email()
-      .normalizeEmail()
-      .minLength(3)
-      .maxLength(254),
-    code: vine.string().trim().minLength(6).maxLength(6).regex(/^\d{6}$/),
+      .minLength(6)
+      .maxLength(6)
+      .regex(/^\d{6}$/),
   })
 )
 
@@ -36,13 +29,7 @@ export const verifyOtpValidator = vine.compile(
  */
 export const completeSignupValidator = vine.compile(
   vine.object({
-    email: vine
-      .string()
-      .trim()
-      .email()
-      .normalizeEmail()
-      .minLength(3)
-      .maxLength(254),
+    email: vine.string().trim().email().normalizeEmail().minLength(3).maxLength(254),
     fullName: vine.string().trim().minLength(1).maxLength(255),
   })
 )

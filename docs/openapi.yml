@@ -13,15 +13,215 @@ servers:
 tags:
   - name: Auth
     description: Authentication and session endpoints
+  - name: Conversations
+    description: Chat and conversation management
+  - name: Realtime
+    description: Real-time event broadcasting via Pusher
 
 paths:
+  /api/v1/conversations:
+    post:
+      tags: [Conversations]
+      summary: Send a message
+      description: |
+        Send a text message and get AI response.
+        Supports real-time streaming via Pusher.
+
+        **Real-time Streaming:**
+        If `stream: true` is provided, the server will broadcast the AI response in chunks via Pusher.
+
+        **Pusher Details:**
+        - **Channel:** `conversation-{conversationId}`
+        - **Events:**
+          - `stream:start`: `{ messageId: number }`
+          - `stream:chunk`: `{ content: string }`
+          - `stream:complete`: `{ messageId: number, conversationId: number }`
+          - `stream:error`: `{ message: string }`
+      operationId: conversationsSendMessage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  example: 'How are you feeling today?'
+                conversationId:
+                  type: integer
+                  example: 1
+                mode:
+                  type: string
+                  enum: [text, voice]
+                  default: text
+                stream:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Message sent and AI response generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation:
+                    $ref: '#/components/schemas/Conversation'
+                  message:
+                    $ref: '#/components/schemas/Message'
+                  response:
+                    $ref: '#/components/schemas/Message'
+                  sentiment:
+                    type: object
+                    properties:
+                      sentiment:
+                        type: string
+                      crisisIndicators:
+                        type: array
+                        items:
+                          type: string
+                      confidence:
+                        type: number
+        '401':
+          description: Unauthorized
+        '422':
+          description: Validation error
+
+  /api/v1/auth/send-otp:
+    post:
+      tags: [Auth]
+      summary: Send OTP to email
+      description: Sends a 6-digit OTP code to the provided email address.
+      operationId: authSendOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+      responses:
+        '200':
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: OTP sent successfully
+                  expiresIn:
+                    type: integer
+                    example: 600
+        '422':
+          description: Validation error
+        '429':
+          description: Too many requests (rate limiting)
+
+  /api/v1/auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify OTP code
+      description: Verifies the OTP code and returns user info or indicates if signup is needed.
+      operationId: authVerifyOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                code:
+                  type: string
+                  example: '123456'
+      responses:
+        '200':
+          description: OTP verified or signup required
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserPublic'
+                      token:
+                        $ref: '#/components/schemas/Token'
+                      requiresSignup:
+                        type: boolean
+                        example: false
+                  - type: object
+                    properties:
+                      requiresSignup:
+                        type: boolean
+                        example: true
+                      email:
+                        type: string
+                        example: user@example.com
+                      message:
+                        type: string
+                        example: Please complete your signup by providing your full name
+        '400':
+          description: Invalid or expired OTP
+        '422':
+          description: Validation error
+
+  /api/v1/auth/complete-signup:
+    post:
+      tags: [Auth]
+      summary: Complete signup with fullname
+      description: Completes the signup process for new users by saving their fullname.
+      operationId: authCompleteSignup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                fullName:
+                  type: string
+                  example: John Doe
+      responses:
+        '200':
+          description: Signup completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/UserPublic'
+                  token:
+                    $ref: '#/components/schemas/Token'
+        '400':
+          description: User already exists or OTP not verified
+        '422':
+          description: Validation error
   /api/v1/auth/google:
     get:
       tags: [Auth]
       summary: Redirect to Google OAuth
       description: |
         Initiates Google OAuth 2.0 flow by redirecting to Google's consent screen.
-        
+
         After user authenticates, Google redirects to `/api/v1/auth/google/callback` which returns the bearer token.
       operationId: authGoogleRedirect
       responses:
@@ -39,7 +239,7 @@ paths:
       summary: Google OAuth callback
       description: |
         Handles the callback from Google OAuth after user authentication.
-        
+
         This endpoint is called by Google after user grants permissions.
         Returns user information and bearer token.
       operationId: authGoogleCallback
@@ -187,6 +387,38 @@ components:
         Send as: `Authorization: Bearer <token>`
 
   schemas:
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          nullable: true
+        mode:
+          type: string
+          enum: [text, voice]
+        createdAt:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        metadata:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
     AppleAuthRequest:
       type: object
       additionalProperties: false
@@ -211,17 +443,22 @@ components:
         id:
           type: integer
           format: int64
+          example: 1
         email:
           type: string
           format: email
+          example: user@example.com
         fullName:
           type: string
           nullable: true
+          example: Ada Lovelace
         avatarUrl:
           type: string
           nullable: true
+          example: https://cdn.haven.app/avatar.png
         emailVerified:
           type: boolean
+          example: true
 
     UserMe:
       allOf:
@@ -246,13 +483,16 @@ components:
         type:
           type: string
           enum: [bearer]
+          example: bearer
         value:
           type: string
           description: Token string to use in the Authorization header
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         expiresAt:
           type: string
           format: date-time
           nullable: true
+          example: 2026-01-23T12:00:00.000Z
 
     AuthResponse:
       type: object
@@ -263,6 +503,17 @@ components:
           $ref: '#/components/schemas/UserPublic'
         token:
           $ref: '#/components/schemas/Token'
+      example:
+        user:
+          id: 1
+          email: user@example.com
+          fullName: Ada Lovelace
+          avatarUrl: https://cdn.haven.app/avatar.png
+          emailVerified: true
+        token:
+          type: bearer
+          value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+          expiresAt: 2026-01-23T12:00:00.000Z
 
     MeResponse:
       type: object
@@ -271,6 +522,15 @@ components:
       properties:
         user:
           $ref: '#/components/schemas/UserMe'
+      example:
+        user:
+          id: 1
+          email: user@example.com
+          fullName: Ada Lovelace
+          avatarUrl: https://cdn.haven.app/avatar.png
+          emailVerified: true
+          lastLoginAt: 2026-01-23T11:00:00.000Z
+          createdAt: 2026-01-01T10:00:00.000Z
 
     RefreshResponse:
       type: object
@@ -279,6 +539,11 @@ components:
       properties:
         token:
           $ref: '#/components/schemas/Token'
+      example:
+        token:
+          type: bearer
+          value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+          expiresAt: 2026-01-23T12:00:00.000Z
 
     LogoutResponse:
       type: object
@@ -288,6 +553,8 @@ components:
         message:
           type: string
           example: Logged out successfully
+      example:
+        message: Logged out successfully
 
     ErrorResponse:
       type: object
@@ -296,6 +563,8 @@ components:
         message:
           type: string
           example: Unauthorized
+      example:
+        message: Unauthorized
 
     ValidationErrorResponse:
       type: object
@@ -307,3 +576,9 @@ components:
           items:
             type: object
             additionalProperties: true
+      example:
+        errors:
+          - field: email
+            message: Email is required
+          - field: password
+            message: Password must be at least 8 characters

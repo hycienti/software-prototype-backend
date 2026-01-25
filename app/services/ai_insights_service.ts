@@ -133,14 +133,10 @@ export default class AIInsightsService {
       .join('\n\n')
 
     // Format themes
-    const themesText = data.mostCommonThemes
-      .map((t) => `${t.theme} (${t.count} times)`)
-      .join(', ')
+    const themesText = data.mostCommonThemes.map((t) => `${t.theme} (${t.count} times)`).join(', ')
 
     // Format monthly trend
-    const trendText = data.monthlyTrend
-      .map((t) => `${t.month}: ${t.count} entries`)
-      .join(', ')
+    const trendText = data.monthlyTrend.map((t) => `${t.month}: ${t.count} entries`).join(', ')
 
     // Build prompt
     const prompt = GRATITUDE_INSIGHTS_PROMPT.replace('{totalEntries}', String(data.totalEntries))
@@ -306,10 +302,7 @@ export default class AIInsightsService {
    * Invalidate cache for a user and type
    */
   async invalidateCache(userId: number, type: 'gratitude' | 'mood'): Promise<void> {
-    await AiInsight.query()
-      .where('user_id', userId)
-      .where('type', type)
-      .delete()
+    await AiInsight.query().where('user_id', userId).where('type', type).delete()
 
     logger.debug('Invalidated AI insights cache', { userId, type })
   }
@@ -370,9 +363,10 @@ export default class AIInsightsService {
   /**
    * Get recent gratitude entries for insights
    */
-  async getRecentGratitudeEntries(userId: number, days: number = 7): Promise<
-    Array<{ date: string; entries: string[] }>
-  > {
+  async getRecentGratitudeEntries(
+    userId: number,
+    days: number = 7
+  ): Promise<Array<{ date: string; entries: string[] }>> {
     const startDate = DateTime.now().minus({ days }).startOf('day')
     const entries = await Gratitude.query()
       .where('user_id', userId)
@@ -389,9 +383,10 @@ export default class AIInsightsService {
   /**
    * Get recent mood entries for insights
    */
-  async getRecentMoodEntries(userId: number, days: number = 7): Promise<
-    Array<{ date: string; mood: string; intensity: number; notes: string | null }>
-  > {
+  async getRecentMoodEntries(
+    userId: number,
+    days: number = 7
+  ): Promise<Array<{ date: string; mood: string; intensity: number; notes: string | null }>> {
     const startDate = DateTime.now().minus({ days }).startOf('day')
     const entries = await Mood.query()
       .where('user_id', userId)

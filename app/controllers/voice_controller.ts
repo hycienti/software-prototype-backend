@@ -80,7 +80,7 @@ export default class VoiceController {
       }
 
       // Save user message (transcript)
-       await Message.create({
+      await Message.create({
         conversationId: conversation.id,
         role: 'user',
         content: transcript,

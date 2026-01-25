@@ -4,6 +4,7 @@ import { Readable } from 'node:stream'
 import Conversation from '#models/conversation'
 import Message from '#models/message'
 import OpenAIService from '#services/openai_service'
+import pusherService from '#services/pusher_service'
 import {
   sendMessageValidator,
   getConversationHistoryValidator,
@@ -18,7 +19,8 @@ export default class ConversationsController {
    * @summary Send a message in a conversation
    * @tag Conversations
    * @description Send a text message and get AI response. Creates new conversation if conversationId is not provided.
-   * @requestBody {"conversationId": 1, "message": "Hello", "mode": "text"}
+   * Supports real-time streaming via Pusher on channel `conversation-{id}` with event `stream:chunk`.
+   * @requestBody {"conversationId": 1, "message": "Hello", "mode": "text", "stream": true}
    * @responseBody 200 - {"conversation": {...}, "message": {...}, "response": {...}}
    * @responseBody 400 - {"message": "Validation error"}
    * @responseBody 401 - {"message": "Unauthorized"}
@@ -28,12 +30,14 @@ export default class ConversationsController {
     try {
       const user = auth.user!
       const payload = await sendMessageValidator.validate(request.all())
+      const stream = request.input('stream') === true
 
       logger.info('Processing chat message', {
         userId: user.id,
         conversationId: payload.conversationId,
         messageLength: payload.message.length,
         mode: payload.mode || 'text',
+        stream,
       })
 
       // Get or create conversation
@@ -51,7 +55,6 @@ export default class ConversationsController {
         })
       }
 
-      // Save user message
       const userMessage = await Message.create({
         conversationId: conversation.id,
         role: 'user',
@@ -63,7 +66,7 @@ export default class ConversationsController {
       const previousMessages = await Message.query()
         .where('conversation_id', conversation.id)
         .orderBy('created_at', 'asc')
-        .limit(20) // Last 20 messages for context
+        .limit(20)
 
       // Prepare messages for OpenAI
       const chatMessages = previousMessages.map((msg) => ({
@@ -71,15 +74,37 @@ export default class ConversationsController {
         content: msg.content,
       }))
 
-      // Analyze sentiment and detect crisis
-      const sentimentAnalysis = await this.openaiService.analyzeSentiment(payload.message)
+      // Analyze sentiment and detect crisis (async)
+      const sentimentPromise = this.openaiService.analyzeSentiment(payload.message)
 
-      // Generate AI response
-      const aiResponse = await this.openaiService.generateResponse({
-        messages: chatMessages,
-        temperature: 0.7,
-        maxTokens: 1000,
-      })
+      let aiResponse = ''
+      if (stream) {
+        // Broadcast start event via Pusher
+        await pusherService.stream(conversation.id, 'start', {
+          messageId: userMessage.id,
+        })
+
+        // Generate and stream response
+        for await (const chunk of this.openaiService.generateStreamingResponse({
+          messages: chatMessages,
+          temperature: 0.7,
+          maxTokens: 1000,
+        })) {
+          aiResponse += chunk
+          await pusherService.stream(conversation.id, 'chunk', {
+            content: chunk,
+          })
+        }
+      } else {
+        // Generate full response
+        aiResponse = await this.openaiService.generateResponse({
+          messages: chatMessages,
+          temperature: 0.7,
+          maxTokens: 1000,
+        })
+      }
+
+      const sentimentAnalysis = await sentimentPromise
 
       // Save AI response
       const assistantMessage = await Message.create({
@@ -93,6 +118,14 @@ export default class ConversationsController {
         },
       })
 
+      // Broadcast complete event via Pusher if streaming
+      if (stream) {
+        await pusherService.stream(conversation.id, 'complete', {
+          messageId: assistantMessage.id,
+          conversationId: conversation.id,
+        })
+      }
+
       // Update conversation metadata and last message time
       conversation.lastMessageAt = DateTime.now()
       conversation.metadata = {
@@ -103,8 +136,7 @@ export default class ConversationsController {
       await conversation.save()
 
       // Update conversation title if it's the first message
-      if (!conversation.title && previousMessages.length === 0) {
-        // Generate a short title from the first message
+      if (!conversation.title && previousMessages.length === 1) {
         const { getConversationTitlePrompt } = await import('../prompts/index.js')
         const titlePrompt = getConversationTitlePrompt(payload.message)
         try {
@@ -161,196 +193,17 @@ export default class ConversationsController {
         userId: auth.user?.id,
         processingTimeMs: processingTime,
       })
-      return response.internalServerError({
-        message: 'Failed to process message',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-    }
-  }
 
-  /**
-   * @streamMessage
-   * @summary Stream AI response for a message (SSE Fallback)
-   * @tag Conversations
-   * @description Server-Sent Events (SSE) endpoint for streaming responses.
-   * NOTE: WebSocket streaming at /streaming channel is preferred for better performance.
-   * This endpoint provides SSE streaming as a fallback option.
-   * @param conversationId - Conversation ID
-   * @queryParam message - User message to send
-   * @responseBody 200 - SSE stream with chunks
-   * @responseBody 400 - {"message": "Validation error"}
-   * @responseBody 401 - {"message": "Unauthorized"}
-   */
-  async streamMessage({ request, response, auth, params }: HttpContext) {
-    const startTime = Date.now()
-    try {
-      const user = auth.user!
-      const conversationId = Number(params.id)
-      const message = request.input('message')
-
-      if (!message || typeof message !== 'string' || message.trim().length === 0) {
-        return response.badRequest({ message: 'Message is required' })
-      }
-
-      logger.info('Starting SSE stream message', {
-        userId: user.id,
-        conversationId,
-        messageLength: message.length,
-        note: 'WebSocket streaming is preferred for better performance',
-      })
-
-      // Get or create conversation
-      let conversation: Conversation
-      if (conversationId) {
-        conversation = await Conversation.query()
-          .where('id', conversationId)
-          .where('user_id', user.id)
-          .firstOrFail()
-      } else {
-        conversation = await Conversation.create({
-          userId: user.id,
-          mode: 'text',
-          title: null,
+      // Broadcast error via Pusher if conversationId is known
+      if (request.input('stream') === true && request.input('conversationId')) {
+        await pusherService.stream(request.input('conversationId'), 'error', {
+          message: error instanceof Error ? error.message : 'Failed to generate response',
         })
       }
 
-      // Save user message
-      const userMessage = await Message.create({
-        conversationId: conversation.id,
-        role: 'user',
-        content: message,
-        metadata: null,
-      })
-
-      // Get conversation history for context
-      const previousMessages = await Message.query()
-        .where('conversation_id', conversation.id)
-        .orderBy('created_at', 'asc')
-        .limit(20)
-
-      // Prepare messages for OpenAI
-      const chatMessages = previousMessages.map((msg) => ({
-        role: msg.role as 'user' | 'assistant' | 'system',
-        content: msg.content,
-      }))
-
-      // Set up SSE headers
-      response.header('Content-Type', 'text/event-stream')
-      response.header('Cache-Control', 'no-cache')
-      response.header('Connection', 'keep-alive')
-      response.header('X-Accel-Buffering', 'no')
-      response.header('Access-Control-Allow-Origin', '*')
-
-      // Create a readable stream for SSE
-      const stream = new Readable({
-        read() {}, // No-op, we'll push data manually
-      })
-
-      // Send initial event
-      stream.push(
-        `data: ${JSON.stringify({
-          type: 'start',
-          conversationId: conversation.id,
-          messageId: userMessage.id,
-        })}\n\n`
-      )
-
-      // Stream AI response chunks in real-time
-      let fullResponse = ''
-      const streamPromise = (async () => {
-        try {
-          for await (const chunk of this.openaiService.generateStreamingResponse({
-            messages: chatMessages,
-            temperature: 0.7,
-            maxTokens: 1000,
-          })) {
-            fullResponse += chunk
-            // Send each chunk immediately via SSE
-            stream.push(
-              `data: ${JSON.stringify({
-                type: 'chunk',
-                content: chunk,
-              })}\n\n`
-            )
-          }
-
-          // Analyze sentiment
-          const sentimentAnalysis = await this.openaiService.analyzeSentiment(message)
-
-          // Save AI response
-          const assistantMessage = await Message.create({
-            conversationId: conversation.id,
-            role: 'assistant',
-            content: fullResponse,
-            metadata: {
-              sentiment: sentimentAnalysis.sentiment,
-              crisisIndicators: sentimentAnalysis.crisisIndicators,
-              confidence: sentimentAnalysis.confidence,
-            },
-          })
-
-          // Update conversation
-          conversation.lastMessageAt = DateTime.now()
-          conversation.metadata = {
-            ...(conversation.metadata || {}),
-            lastSentiment: sentimentAnalysis.sentiment,
-            hasCrisisIndicators: sentimentAnalysis.crisisIndicators.length > 0,
-          }
-          await conversation.save()
-
-          // Send completion event
-          stream.push(
-            `data: ${JSON.stringify({
-              type: 'complete',
-              messageId: assistantMessage.id,
-              sentiment: sentimentAnalysis,
-            })}\n\n`
-          )
-
-          const processingTime = Date.now() - startTime
-          logger.info('SSE stream message completed', {
-            userId: user.id,
-            conversationId: conversation.id,
-            processingTimeMs: processingTime,
-            responseLength: fullResponse.length,
-          })
-
-          // Close the stream
-          stream.push(null)
-        } catch (streamError) {
-          logger.error('Error in SSE stream', {
-            error: streamError instanceof Error ? streamError.message : String(streamError),
-            userId: user.id,
-          })
-          stream.push(
-            `data: ${JSON.stringify({
-              type: 'error',
-              message: streamError instanceof Error ? streamError.message : 'Unknown error',
-            })}\n\n`
-          )
-          stream.push(null)
-        }
-      })()
-
-      // Start the async processing (don't await - let it run in background)
-      streamPromise.catch((streamError) => {
-        // Error handling is done inside streamPromise
-        logger.error('Stream promise error', { error: streamError })
-      })
-
-      // Return the stream immediately (non-blocking)
-      return response.stream(stream)
-    } catch (error) {
-      const processingTime = Date.now() - startTime
-      logger.error('Error setting up SSE stream', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        userId: auth.user?.id,
-        processingTimeMs: processingTime,
-      })
       return response.internalServerError({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: 'Failed to process message',
+        error: error instanceof Error ? error.message : 'Unknown error',
       })
     }
   }
@@ -368,9 +221,7 @@ export default class ConversationsController {
   async getHistory({ request, response, auth }: HttpContext) {
     try {
       const user = auth.user!
-      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(
-        request.qs()
-      )
+      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(request.qs())
 
       const conversations = await Conversation.query()
         .where('user_id', user.id)
@@ -436,9 +287,7 @@ export default class ConversationsController {
     try {
       const user = auth.user!
       const conversationId = Number(params.id)
-      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(
-        request.qs()
-      )
+      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(request.qs())
 
       const conversation = await Conversation.query()
         .where('id', conversationId)
@@ -460,13 +309,16 @@ export default class ConversationsController {
           lastMessageAt: conversation.lastMessageAt,
           createdAt: conversation.createdAt,
         },
-        messages: messages.all().reverse().map((msg) => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          metadata: msg.metadata,
-          createdAt: msg.createdAt,
-        })),
+        messages: messages
+          .all()
+          .reverse()
+          .map((msg) => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            metadata: msg.metadata,
+            createdAt: msg.createdAt,
+          })),
         pagination: {
           page: messages.currentPage,
           perPage: messages.perPage,

@@ -23,9 +23,7 @@ export default class GratitudeService {
       let currentDate = DateTime.now().startOf('day')
 
       // Check if there's an entry for today
-      const todayEntry = gratitudes.find(
-        (g) => g.entryDate.toISODate() === currentDate.toISODate()
-      )
+      const todayEntry = gratitudes.find((g) => g.entryDate.toISODate() === currentDate.toISODate())
 
       if (!todayEntry) {
         // If no entry today, start from yesterday
@@ -83,9 +81,7 @@ export default class GratitudeService {
       const allGratitudes = await Gratitude.query().where('user_id', userId)
 
       // Get gratitudes for this month
-      const thisMonthGratitudes = allGratitudes.filter(
-        (g) => g.entryDate >= startOfMonth
-      )
+      const thisMonthGratitudes = allGratitudes.filter((g) => g.entryDate >= startOfMonth)
 
       // Get gratitudes for last month
       const lastMonthGratitudes = allGratitudes.filter(
@@ -152,15 +148,11 @@ export default class GratitudeService {
   /**
    * Calculate longest streak from all entries
    */
-  private async calculateLongestStreak(
-    allGratitudes: Gratitude[]
-  ): Promise<number> {
+  private async calculateLongestStreak(allGratitudes: Gratitude[]): Promise<number> {
     if (allGratitudes.length === 0) return 0
 
     // Sort by date ascending
-    const sorted = allGratitudes.sort(
-      (a, b) => a.entryDate.toMillis() - b.entryDate.toMillis()
-    )
+    const sorted = allGratitudes.sort((a, b) => a.entryDate.toMillis() - b.entryDate.toMillis())
 
     let longestStreak = 1
     let currentStreak = 1
@@ -211,9 +203,7 @@ export default class GratitudeService {
   /**
    * Extract common themes from gratitude entries
    */
-  private extractCommonThemes(
-    gratitudes: Gratitude[]
-  ): Array<{ theme: string; count: number }> {
+  private extractCommonThemes(gratitudes: Gratitude[]): Array<{ theme: string; count: number }> {
     // Simple keyword-based theme extraction
     const themeKeywords: Record<string, string[]> = {
       family: ['family', 'mom', 'dad', 'parent', 'sibling', 'brother', 'sister', 'child'],

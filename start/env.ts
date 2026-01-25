@@ -43,4 +43,11 @@ export default await Env.create(new URL('../', import.meta.url), {
   RESEND_API_KEY: Env.schema.string.optional(),
   RESEND_FROM_EMAIL: Env.schema.string.optional(),
   RESEND_FROM_NAME: Env.schema.string.optional(),
+
+  // Pusher
+  PUSHER_APP_ID: Env.schema.string.optional(),
+  PUSHER_KEY: Env.schema.string.optional(),
+  PUSHER_SECRET: Env.schema.string.optional(),
+  PUSHER_CLUSTER: Env.schema.string.optional(),
+  PUSHER_USE_TLS: Env.schema.boolean.optional(),
 })
