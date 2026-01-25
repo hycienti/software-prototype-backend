@@ -24,9 +24,7 @@ class PusherService {
     }
   }
 
-  /**
-   * Broadcast an event to a channel
-   */
+
   async trigger(channel: string, event: string, data: any) {
     if (!this.pusher) {
       logger.debug(`Pusher disabled. Skipping event ${event} on channel ${channel}`)

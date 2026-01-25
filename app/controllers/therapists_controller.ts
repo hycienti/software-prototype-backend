@@ -8,7 +8,7 @@ import {
   therapistOnboardingValidator,
 } from '#validators/auth_validator'
 import { DateTime } from 'luxon'
-import { Specialty } from '#enums/specialty'
+import { Specialty, SPECIALTIES } from '#enums/specialty'
 import crypto from 'node:crypto'
 
 export default class TherapistsController {
@@ -27,7 +27,7 @@ export default class TherapistsController {
   async sendOtp({ request, response }: HttpContext) {
     const { email } = await emailValidator.validate(request.all())
 
-    // Rate limiting
+
     const recentOtp = await Otp.query()
       .where('email', email)
       .where('created_at', '>', DateTime.now().minus({ seconds: 60 }).toSQL()!)
@@ -63,8 +63,10 @@ export default class TherapistsController {
     }
 
     return response.ok({
-      message: 'OTP sent successfully',
+      message: 'OTP sent successfully.',
       expiresIn: 600,
+      status: true,
+      otp: code,
     })
   }
 
@@ -107,19 +109,29 @@ export default class TherapistsController {
 
     await otp.merge({ verified: true }).save()
 
-    const therapist = await Therapist.findBy('email', email)
+    let therapist = await Therapist.findBy('email', email)
 
-    if (!therapist || !therapist.fullName) {
+    if (!therapist) {
+      therapist = new Therapist()
+      therapist.email = email
+      therapist.emailVerified = true
+      await therapist.save()
+    } else if (!therapist.emailVerified) {
+      therapist.emailVerified = true
+      await therapist.save()
+    }
+
+    if (!therapist.fullName) {
       return response.ok({
         requiresOnboarding: true,
         email,
+        emailVerified: therapist.emailVerified,
         message: 'Please complete your onboarding by providing your professional details',
       })
     }
 
     await therapist
       .merge({
-        emailVerified: true,
         lastLoginAt: DateTime.now(),
       })
       .save()
@@ -236,5 +248,16 @@ export default class TherapistsController {
         createdAt: therapist.createdAt.toISO(),
       },
     })
+  }
+
+  /**
+   * @specialties
+   * @summary List all available specialties
+   * @tag Therapist Auth
+   * @description Returns a list of all professional specialties available for therapists
+   * @responseBody 200 - ["Anxiety", "Depression", ...]
+   */
+  async specialties({ response }: HttpContext) {
+    return response.ok(SPECIALTIES)
   }
 }
