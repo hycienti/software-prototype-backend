@@ -215,7 +215,7 @@ export default class ConversationsController {
    * @description Get list of conversations with pagination
    * @queryParam page - Page number (default: 1)
    * @queryParam limit - Items per page (default: 20, max: 100)
-   * @responseBody 200 - {"conversations": [...], "pagination": {...}}
+   * @responseBody 200 - {"conversations": [], "pagination": {}}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
   async getHistory({ request, response, auth }: HttpContext) {

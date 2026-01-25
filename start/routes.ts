@@ -21,6 +21,7 @@ const GratitudeController = () => import('#controllers/gratitude_controller')
 const MoodController = () => import('#controllers/mood_controller')
 const AchievementsController = () => import('#controllers/achievements_controller')
 const TherapistsController = () => import('#controllers/therapists_controller')
+const SessionsController = () => import('#controllers/sessions_controller')
 
 router.get('/', async () => ({
   status: 'ok',
@@ -66,7 +67,6 @@ router.get('/docs/static', async ({ response }) => {
 </html>`
 })
 
-// AutoSwagger (generated from routes, models, validators)
 router.get('/swagger', async () => {
   return AutoSwagger.default.docs(router.toJSON(), swagger)
 })
@@ -96,7 +96,10 @@ router
         router.post('/send-otp', [TherapistsController, 'sendOtp'])
         router.post('/verify-otp', [TherapistsController, 'verifyOtp'])
         router.post('/onboard', [TherapistsController, 'onboard'])
-        router.get('/me', [TherapistsController, 'me']).use(middleware.auth({ guards: ['therapist'] }))
+        router.get('/specialties', [TherapistsController, 'specialties'])
+        router
+          .get('/me', [TherapistsController, 'me'])
+          .use(middleware.auth({ guards: ['therapist'] }))
       })
       .prefix('/therapist/auth')
 
@@ -168,5 +171,18 @@ router
       })
       .prefix('/achievements')
       .use(middleware.auth())
+
+    // Session routes
+    router
+      .group(() => {
+        router.post('/', [SessionsController, 'book']).use(middleware.auth())
+        router
+          .get('/', [SessionsController, 'index'])
+          .use(middleware.auth({ guards: ['api', 'therapist'] }))
+        router
+          .patch('/:id/summary', [SessionsController, 'submitSummary'])
+          .use(middleware.auth({ guards: ['therapist'] }))
+      })
+      .prefix('/sessions')
   })
   .prefix('/api/v1')

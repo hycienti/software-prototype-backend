@@ -22,7 +22,13 @@ export default class Therapist extends BaseModel {
   @column()
   declare identityUrl: string | null
 
-  @column()
+  @column({
+    prepare: (value: Specialty[] | null) => (value ? JSON.stringify(value) : null),
+    consume: (value: string | Specialty[] | null) => {
+      if (!value) return null
+      return typeof value === 'string' ? JSON.parse(value) : value
+    },
+  })
   declare specialties: Specialty[] | null
 
   @column()
