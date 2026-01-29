@@ -120,6 +120,7 @@ router
         router.post('/message', [ConversationsController, 'sendMessage'])
         router.get('/stream/:id', [ConversationsController, 'streamMessage'])
         router.get('/history', [ConversationsController, 'getHistory'])
+        router.post('/typing', [ConversationsController, 'typing'])
         router.get('/:id', [ConversationsController, 'getConversation'])
         router.delete('/:id', [ConversationsController, 'deleteConversation'])
       })
