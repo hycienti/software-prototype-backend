@@ -1,6 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
-import { Readable } from 'node:stream'
 import Conversation from '#models/conversation'
 import Message from '#models/message'
 import OpenAIService from '#services/openai_service'
@@ -40,7 +39,6 @@ export default class ConversationsController {
         stream,
       })
 
-      // Get or create conversation
       let conversation: Conversation
       if (payload.conversationId) {
         conversation = await Conversation.query()
@@ -62,29 +60,28 @@ export default class ConversationsController {
         metadata: null,
       })
 
-      // Get conversation history for context
       const previousMessages = await Message.query()
         .where('conversation_id', conversation.id)
         .orderBy('created_at', 'asc')
         .limit(20)
 
-      // Prepare messages for OpenAI
       const chatMessages = previousMessages.map((msg) => ({
         role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content,
       }))
 
-      // Analyze sentiment and detect crisis (async)
       const sentimentPromise = this.openaiService.analyzeSentiment(payload.message)
 
       let aiResponse = ''
       if (stream) {
-        // Broadcast start event via Pusher
         await pusherService.stream(conversation.id, 'start', {
           messageId: userMessage.id,
         })
 
-        // Generate and stream response
+        await pusherService.stream(conversation.id, 'typing', {
+          isTyping: true,
+        })
+
         for await (const chunk of this.openaiService.generateStreamingResponse({
           messages: chatMessages,
           temperature: 0.7,
@@ -95,18 +92,28 @@ export default class ConversationsController {
             content: chunk,
           })
         }
+
+        await pusherService.stream(conversation.id, 'typing', {
+          isTyping: false,
+        })
       } else {
-        // Generate full response
+        await pusherService.stream(conversation.id, 'typing', {
+          isTyping: true,
+        })
+
         aiResponse = await this.openaiService.generateResponse({
           messages: chatMessages,
           temperature: 0.7,
           maxTokens: 1000,
         })
+
+        await pusherService.stream(conversation.id, 'typing', {
+          isTyping: false,
+        })
       }
 
       const sentimentAnalysis = await sentimentPromise
 
-      // Save AI response
       const assistantMessage = await Message.create({
         conversationId: conversation.id,
         role: 'assistant',
@@ -118,7 +125,6 @@ export default class ConversationsController {
         },
       })
 
-      // Broadcast complete event via Pusher if streaming
       if (stream) {
         await pusherService.stream(conversation.id, 'complete', {
           messageId: assistantMessage.id,
@@ -126,7 +132,6 @@ export default class ConversationsController {
         })
       }
 
-      // Update conversation metadata and last message time
       conversation.lastMessageAt = DateTime.now()
       conversation.metadata = {
         ...(conversation.metadata || {}),
@@ -135,7 +140,6 @@ export default class ConversationsController {
       }
       await conversation.save()
 
-      // Update conversation title if it's the first message
       if (!conversation.title && previousMessages.length === 1) {
         const { getConversationTitlePrompt } = await import('../prompts/index.js')
         const titlePrompt = getConversationTitlePrompt(payload.message)
@@ -194,7 +198,6 @@ export default class ConversationsController {
         processingTimeMs: processingTime,
       })
 
-      // Broadcast error via Pusher if conversationId is known
       if (request.input('stream') === true && request.input('conversationId')) {
         await pusherService.stream(request.input('conversationId'), 'error', {
           message: error instanceof Error ? error.message : 'Failed to generate response',
@@ -367,5 +370,25 @@ export default class ConversationsController {
         message: 'Conversation not found',
       })
     }
+  }
+
+  /**
+   * @typing
+   * @summary Broadcast typing indicator
+   * @tag Conversations
+   * @description Send a typing indicator event to other participants
+   * @requestBody {"conversationId": 1, "isTyping": true}
+   * @responseBody 200 - {"success": true}
+   */
+  async typing({ request, response, auth }: HttpContext) {
+    const { conversationId, isTyping } = request.all()
+    const user = auth.user!
+
+    await pusherService.stream(conversationId, 'typing', {
+      userId: user.id,
+      isTyping,
+    })
+
+    return response.ok({ success: true })
   }
 }

@@ -37,12 +37,14 @@ class PusherService {
     }
   }
 
-  /**
-   * Broadcast a chat stream event
-   */
-  async stream(conversationId: number, event: 'start' | 'chunk' | 'complete' | 'error', data: any) {
+
+  async stream(
+    conversationId: number,
+    event: 'start' | 'chunk' | 'complete' | 'error' | 'typing',
+    data: any
+  ) {
     const channel = `conversation-${conversationId}`
-    const pusherEvent = `stream:${event}`
+    const pusherEvent = event === 'typing' ? 'typing' : `stream:${event}`
     await this.trigger(channel, pusherEvent, data)
   }
 }
