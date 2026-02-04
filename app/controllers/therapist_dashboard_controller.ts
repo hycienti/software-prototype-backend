@@ -7,6 +7,9 @@ import { DateTime } from 'luxon'
  * Dashboard stats for therapist: sessions today, new requests, monthly revenue.
  */
 export default class TherapistDashboardController {
+  /**
+   * @responseBody 200 - {"sessionsToday": 2, "newRequests": 1, "monthlyRevenue": "500.00", "monthlyRevenueCents": 50000, "balance": "100.00", "balanceCents": 10000}
+   */
   async index({ auth, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
 

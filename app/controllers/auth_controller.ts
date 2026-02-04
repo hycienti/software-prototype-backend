@@ -161,7 +161,7 @@ export default class AuthController {
    * @tag Auth
    * @description Completes the signup process for new users by saving their fullname.
    * @requestBody {"email": "user@example.com", "fullName": "John Doe"}
-   * @responseBody 200 - {"user": {"id": 1, "email": "user@example.com", "fullName": "John Doe", "avatarUrl": null, "emailVerified": true}, "token": {"type": "bearer", "value": "...", "expiresAt": "2026-01-23T12:00:00.000Z"}}
+   * @responseBody 200 - {"user": {"id": 1, "email": "user@example.com", "fullName": "John Doe", "avatarUrl": "", "emailVerified": true}, "token": {"type": "bearer", "value": "...", "expiresAt": "2026-01-23T12:00:00.000Z"}}
    * @responseBody 400 - {"message": "User already exists. Please sign in instead."}
    * @responseBody 422 - {"errors": []}
    */

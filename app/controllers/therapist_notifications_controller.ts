@@ -8,6 +8,9 @@ import { defaultListParams } from '#validators/list_validator'
  * Query: page, limit, isRead (optional "true" | "false").
  */
 export default class TherapistNotificationsController {
+  /**
+   * @responseBody 200 - {"notifications": [{"id": 1, "title": "New session", "message": "Session booked", "type": "session", "isRead": false, "createdAt": "2026-01-20T10:00:00.000Z"}], "meta": {"page": 1, "limit": 20, "total": 1}}
+   */
   async index({ auth, request, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
     const raw = await notificationsListValidator.validate(request.qs())
@@ -43,6 +46,9 @@ export default class TherapistNotificationsController {
     })
   }
 
+  /**
+   * @responseBody 204 - {}
+   */
   async markAllAsRead({ auth, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
     await Notification.query()
@@ -53,6 +59,9 @@ export default class TherapistNotificationsController {
     return response.noContent()
   }
 
+  /**
+   * @responseBody 200 - {"id": 1, "title": "New session", "message": "Session booked", "type": "session", "isRead": true}
+   */
   async update({ auth, params, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
     const notification = await Notification.query()
@@ -66,6 +75,9 @@ export default class TherapistNotificationsController {
     return response.ok(notification)
   }
 
+  /**
+   * @responseBody 204 - {}
+   */
   async destroy({ auth, params, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
     const notification = await Notification.query()

@@ -10,6 +10,9 @@ import { defaultListParams } from '#validators/list_validator'
  * Query: page, limit, search (optional, filters by fullName or email).
  */
 export default class TherapistClientsController {
+  /**
+   * @responseBody 200 - {"clients": [{"userId": 1, "fullName": "Jane Doe", "email": "jane@example.com", "lastSessionAt": "2026-01-20T10:00:00.000Z", "nextSessionAt": "", "sessionCount": 3}], "meta": {"page": 1, "limit": 20, "total": 1}}
+   */
   async index({ auth, request, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
     const { page = defaultListParams.page, limit = defaultListParams.limit, search } =

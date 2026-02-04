@@ -15,6 +15,9 @@ const updateAvailabilityValidator = vine.compile(
  * GET/PUT therapist availability and meeting link.
  */
 export default class TherapistAvailabilityController {
+  /**
+   * @responseBody 200 - {"acceptingNewClients": true, "personalMeetingLink": "https://zoom.us/j/123", "availabilitySlots": []}
+   */
   async show({ auth, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
     await therapist.refresh()
@@ -25,6 +28,9 @@ export default class TherapistAvailabilityController {
     })
   }
 
+  /**
+   * @responseBody 200 - {"acceptingNewClients": true, "personalMeetingLink": "https://zoom.us/j/123", "availabilitySlots": []}
+   */
   async update({ auth, request, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
     const payload = await updateAvailabilityValidator.validate(request.all())

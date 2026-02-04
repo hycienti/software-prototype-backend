@@ -19,6 +19,9 @@ const DEFAULT_WITHDRAWALS_LIMIT = 10
  * Query: transactionsPage, transactionsLimit, withdrawalsPage, withdrawalsLimit.
  */
 export default class TherapistWalletController {
+  /**
+   * @responseBody 200 - {"balanceCents": 10000, "balance": "100.00", "recentTransactions": [], "recentWithdrawals": [], "transactionsMeta": {"page": 1, "limit": 20, "total": 0}, "withdrawalsMeta": {"page": 1, "limit": 10, "total": 0}}
+   */
   async index({ auth, request, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
     const qs = await walletListValidator.validate(request.qs())
@@ -84,6 +87,10 @@ export default class TherapistWalletController {
     })
   }
 
+  /**
+   * @responseBody 201 - {"withdrawal": {"id": 1, "amountCents": 5000, "amount": "50.00", "status": "pending", "requestedAt": "2026-01-20T10:00:00.000Z"}, "newBalanceCents": 5000, "newBalance": "50.00"}
+   * @responseBody 400 - {"message": "Insufficient balance", "balanceCents": 0}
+   */
   async withdraw({ auth, request, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
     const { amountCents } = await withdrawValidator.validate(request.all())
