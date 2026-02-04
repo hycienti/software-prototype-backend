@@ -67,3 +67,12 @@ export const therapistOnboardingValidator = vine.compile(
     specialties: vine.array(vine.enum(Specialty)).minLength(1),
   })
 )
+
+export const therapistUpdateProfileValidator = vine.compile(
+  vine.object({
+    fullName: vine.string().trim().minLength(1).maxLength(255).optional(),
+    professionalTitle: vine.string().trim().maxLength(255).optional(),
+    licenseUrl: vine.string().trim().url().optional().nullable(),
+    identityUrl: vine.string().trim().url().optional().nullable(),
+  })
+)

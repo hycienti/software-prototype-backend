@@ -51,6 +51,9 @@ export default await Env.create(new URL('../', import.meta.url), {
   PUSHER_CLUSTER: Env.schema.string.optional(),
   PUSHER_USE_TLS: Env.schema.boolean.optional(),
 
+  /** VideoSDK (LiveVideoSDK) – create rooms for therapist video sessions */
+  VIDEO_SDK_TOKEN: Env.schema.string.optional(),
+
   /*
   |----------------------------------------------------------
   | Variables for configuring the drive package

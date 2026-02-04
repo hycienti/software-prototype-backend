@@ -23,6 +23,11 @@ const AchievementsController = () => import('#controllers/achievements_controlle
 const TherapistsController = () => import('#controllers/therapists_controller')
 const SessionsController = () => import('#controllers/sessions_controller')
 const NotificationsController = () => import('#controllers/notifications_controller')
+const TherapistNotificationsController = () => import('#controllers/therapist_notifications_controller')
+const TherapistDashboardController = () => import('#controllers/therapist_dashboard_controller')
+const TherapistClientsController = () => import('#controllers/therapist_clients_controller')
+const TherapistAvailabilityController = () => import('#controllers/therapist_availability_controller')
+const TherapistWalletController = () => import('#controllers/therapist_wallet_controller')
 
 router.get('/', async () => ({
   status: 'ok',
@@ -99,10 +104,30 @@ router
         router.post('/onboard', [TherapistsController, 'onboard'])
         router.get('/specialties', [TherapistsController, 'specialties'])
         router
-          .get('/me', [TherapistsController, 'me'])
+          .group(() => {
+            router.get('/me', [TherapistsController, 'me'])
+            router.patch('/me', [TherapistsController, 'updateMe'])
+          })
           .use(middleware.auth({ guards: ['therapist'] }))
       })
       .prefix('/therapist/auth')
+
+    // Therapist app routes (all require therapist auth)
+    router
+      .group(() => {
+        router.get('/dashboard', [TherapistDashboardController, 'index'])
+        router.get('/clients', [TherapistClientsController, 'index'])
+        router.get('/availability', [TherapistAvailabilityController, 'show'])
+        router.put('/availability', [TherapistAvailabilityController, 'update'])
+        router.get('/wallet', [TherapistWalletController, 'index'])
+        router.post('/wallet/withdraw', [TherapistWalletController, 'withdraw'])
+        router.get('/notifications', [TherapistNotificationsController, 'index'])
+        router.patch('/notifications/mark-all-read', [TherapistNotificationsController, 'markAllAsRead'])
+        router.patch('/notifications/:id', [TherapistNotificationsController, 'update'])
+        router.delete('/notifications/:id', [TherapistNotificationsController, 'destroy'])
+      })
+      .prefix('/therapist')
+      .use(middleware.auth({ guards: ['therapist'] }))
 
     // User profile routes
     router
@@ -181,6 +206,12 @@ router
         router
           .get('/', [SessionsController, 'index'])
           .use(middleware.auth({ guards: ['api', 'therapist'] }))
+        router
+          .get('/:id', [SessionsController, 'show'])
+          .use(middleware.auth({ guards: ['api', 'therapist'] }))
+        router
+          .post('/:id/create-room', [SessionsController, 'createRoom'])
+          .use(middleware.auth({ guards: ['therapist'] }))
         router
           .patch('/:id/summary', [SessionsController, 'submitSummary'])
           .use(middleware.auth({ guards: ['therapist'] }))

@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import { BaseModel, belongsTo, column } from '@adonisjs/lucid/orm'
 import User from '#models/user'
+import Therapist from '#models/therapist'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 
 export default class Notification extends BaseModel {
@@ -8,7 +9,10 @@ export default class Notification extends BaseModel {
   declare id: number
 
   @column()
-  declare userId: number
+  declare userId: number | null
+
+  @column()
+  declare therapistId: number | null
 
   @column()
   declare title: string
@@ -27,6 +31,9 @@ export default class Notification extends BaseModel {
 
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
+
+  @belongsTo(() => Therapist)
+  declare therapist: BelongsTo<typeof Therapist>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
