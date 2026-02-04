@@ -1,11 +1,37 @@
 import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
-import { SignJWT } from 'jose'
+import crypto from 'node:crypto'
 
 const VIDEO_SDK_BASE = 'https://api.videosdk.live/v2'
 
 /** JWT expiry for participant tokens (client joining a meeting) */
-const PARTICIPANT_TOKEN_EXPIRY = '2h'
+const PARTICIPANT_TOKEN_EXPIRY_HOURS = 2
+const SERVER_TOKEN_EXPIRY_MINUTES = 120
+
+/**
+ * Encode to base64url (no padding, URL-safe).
+ */
+function base64urlEncode(input: Buffer | string): string {
+  const buf = typeof input === 'string' ? Buffer.from(input, 'utf8') : input
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+/**
+ * Sign a JWT with HS256 using Node crypto (no external JWT library).
+ * Payload must include exp (expiration) as seconds since epoch.
+ */
+function signJwtHs256(payload: Record<string, unknown>, secret: string, expiryMinutes: number): string {
+  const header = { alg: 'HS256', typ: 'JWT' }
+  const now = Math.floor(Date.now() / 1000)
+  const payloadWithExp = { ...payload, exp: now + expiryMinutes * 60 }
+  const headerB64 = base64urlEncode(JSON.stringify(header))
+  const payloadB64 = base64urlEncode(JSON.stringify(payloadWithExp))
+  const message = `${headerB64}.${payloadB64}`
+  const hmac = crypto.createHmac('sha256', secret)
+  hmac.update(message)
+  const signature = base64urlEncode(hmac.digest())
+  return `${message}.${signature}`
+}
 
 /**
  * VideoSDK service: create rooms and generate JWT tokens.
@@ -36,18 +62,14 @@ export class VideoSdkService {
    * Generate a JWT for server-side v2 API calls (e.g. create room).
    * Role "crawler" = v2 API only, cannot run Meeting/Room.
    */
-  private async generateServerToken(): Promise<string> {
-    const secret = new TextEncoder().encode(this.getSecret())
+  private generateServerToken(): string {
     const payload = {
       apikey: this.getApiKey(),
-      permissions: ['allow_join', 'allow_mod'] as string[],
+      permissions: ['allow_join', 'allow_mod'],
       version: 2,
-      roles: ['crawler'] as string[],
+      roles: ['crawler'],
     }
-    return await new SignJWT(payload)
-      .setProtectedHeader({ alg: 'HS256' })
-      .setExpirationTime('120m')
-      .sign(secret)
+    return signJwtHs256(payload as Record<string, unknown>, this.getSecret(), SERVER_TOKEN_EXPIRY_MINUTES)
   }
 
   /**
@@ -55,19 +77,16 @@ export class VideoSdkService {
    * Role "rtc" = run Meeting/Room only, cannot use server-side APIs.
    * Scoped to roomId so the token is only valid for that room.
    */
-  private async generateParticipantToken(roomId: string): Promise<string> {
-    const secret = new TextEncoder().encode(this.getSecret())
+  private generateParticipantToken(roomId: string): string {
     const payload = {
       apikey: this.getApiKey(),
-      permissions: ['allow_join'] as string[],
+      permissions: ['allow_join'],
       version: 2,
       roomId,
-      roles: ['rtc'] as string[],
+      roles: ['rtc'],
     }
-    return await new SignJWT(payload as Record<string, unknown>)
-      .setProtectedHeader({ alg: 'HS256' })
-      .setExpirationTime(PARTICIPANT_TOKEN_EXPIRY)
-      .sign(secret)
+    const expiryMinutes = PARTICIPANT_TOKEN_EXPIRY_HOURS * 60
+    return signJwtHs256(payload as Record<string, unknown>, this.getSecret(), expiryMinutes)
   }
 
   /**
@@ -79,7 +98,7 @@ export class VideoSdkService {
     let authToken: string
 
     if (this.useJwtGeneration()) {
-      authToken = await this.generateServerToken()
+      authToken = this.generateServerToken()
     } else {
       const legacy = env.get('VIDEO_SDK_TOKEN')
       if (!legacy) {
@@ -108,7 +127,7 @@ export class VideoSdkService {
     const roomId = data.roomId
 
     if (this.useJwtGeneration()) {
-      const participantToken = await this.generateParticipantToken(roomId)
+      const participantToken = this.generateParticipantToken(roomId)
       return { roomId, token: participantToken }
     }
 
