@@ -3,6 +3,7 @@ import TherapistWallet from '#models/therapist_wallet'
 import TherapistTransaction from '#models/therapist_transaction'
 import TherapistWithdrawal from '#models/therapist_withdrawal'
 import vine from '@vinejs/vine'
+import { walletListValidator } from '#validators/list_validator'
 
 const withdrawValidator = vine.compile(
   vine.object({
@@ -10,12 +11,21 @@ const withdrawValidator = vine.compile(
   })
 )
 
+const DEFAULT_TRANSACTIONS_LIMIT = 20
+const DEFAULT_WITHDRAWALS_LIMIT = 10
+
 /**
- * Therapist wallet: balance, recent transactions, request withdrawal.
+ * Therapist wallet: balance, recent transactions, recent withdrawals.
+ * Query: transactionsPage, transactionsLimit, withdrawalsPage, withdrawalsLimit.
  */
 export default class TherapistWalletController {
-  async index({ auth, response }: HttpContext) {
+  async index({ auth, request, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
+    const qs = await walletListValidator.validate(request.qs())
+    const transactionsPage = qs.transactionsPage ?? 1
+    const transactionsLimit = qs.transactionsLimit ?? DEFAULT_TRANSACTIONS_LIMIT
+    const withdrawalsPage = qs.withdrawalsPage ?? 1
+    const withdrawalsLimit = qs.withdrawalsLimit ?? DEFAULT_WITHDRAWALS_LIMIT
 
     let wallet = await TherapistWallet.findBy('therapist_id', therapist.id)
     if (!wallet) {
@@ -25,15 +35,21 @@ export default class TherapistWalletController {
       })
     }
 
-    const transactions = await TherapistTransaction.query()
+    const transactionsQuery = TherapistTransaction.query()
       .where('therapist_id', therapist.id)
       .orderBy('created_at', 'desc')
-      .limit(20)
+    const transactionsTotal = await transactionsQuery.clone().count('* as total').first()
+    const transactions = await transactionsQuery
+      .offset((transactionsPage - 1) * transactionsLimit)
+      .limit(transactionsLimit)
 
-    const withdrawals = await TherapistWithdrawal.query()
+    const withdrawalsQuery = TherapistWithdrawal.query()
       .where('therapist_id', therapist.id)
       .orderBy('requested_at', 'desc')
-      .limit(10)
+    const withdrawalsTotal = await withdrawalsQuery.clone().count('* as total').first()
+    const withdrawals = await withdrawalsQuery
+      .offset((withdrawalsPage - 1) * withdrawalsLimit)
+      .limit(withdrawalsLimit)
 
     return response.ok({
       balanceCents: wallet.balanceCents,
@@ -47,6 +63,11 @@ export default class TherapistWalletController {
         sessionId: t.sessionId,
         createdAt: t.createdAt.toISO(),
       })),
+      transactionsMeta: {
+        page: transactionsPage,
+        limit: transactionsLimit,
+        total: Number(transactionsTotal?.$extras?.total ?? 0),
+      },
       recentWithdrawals: withdrawals.map((w) => ({
         id: w.id,
         amountCents: w.amountCents,
@@ -55,6 +76,11 @@ export default class TherapistWalletController {
         requestedAt: w.requestedAt.toISO(),
         completedAt: w.completedAt?.toISO() ?? null,
       })),
+      withdrawalsMeta: {
+        page: withdrawalsPage,
+        limit: withdrawalsLimit,
+        total: Number(withdrawalsTotal?.$extras?.total ?? 0),
+      },
     })
   }
 

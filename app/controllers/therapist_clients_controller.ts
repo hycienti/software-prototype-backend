@@ -2,13 +2,18 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Session from '#models/session'
 import User from '#models/user'
 import { DateTime } from 'luxon'
+import { clientsListValidator } from '#validators/list_validator'
+import { defaultListParams } from '#validators/list_validator'
 
 /**
  * List clients (users) that have at least one session with the authenticated therapist.
+ * Query: page, limit, search (optional, filters by fullName or email).
  */
 export default class TherapistClientsController {
-  async index({ auth, response }: HttpContext) {
+  async index({ auth, request, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
+    const { page = defaultListParams.page, limit = defaultListParams.limit, search } =
+      await clientsListValidator.validate(request.qs())
 
     const sessions = await Session.query()
       .where('therapist_id', therapist.id)
@@ -50,7 +55,7 @@ export default class TherapistClientsController {
       }
     }
 
-    const clients = Array.from(byUserId.entries()).map(([userId, data]) => ({
+    let clients = Array.from(byUserId.entries()).map(([userId, data]) => ({
       userId,
       fullName: data.user.fullName,
       email: data.user.email,
@@ -60,6 +65,22 @@ export default class TherapistClientsController {
       sessionCount: data.sessionCount,
     }))
 
-    return response.ok({ clients })
+    if (search && search.trim()) {
+      const term = search.trim().toLowerCase()
+      clients = clients.filter(
+        (c) =>
+          (c.fullName ?? '').toLowerCase().includes(term) ||
+          (c.email ?? '').toLowerCase().includes(term)
+      )
+    }
+
+    const total = clients.length
+    const offset = (page - 1) * limit
+    const paginatedClients = clients.slice(offset, offset + limit)
+
+    return response.ok({
+      clients: paginatedClients,
+      meta: { page, limit, total },
+    })
   }
 }

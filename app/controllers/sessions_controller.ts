@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Session from '#models/session'
 import Therapist from '#models/therapist'
 import { bookSessionValidator, sessionSummaryValidator } from '#validators/session_validator'
+import { sessionsListValidator, defaultListParams } from '#validators/list_validator'
 import { SessionStatus } from '#enums/session'
 import { DateTime } from 'luxon'
 import { VideoSdkService } from '#services/videosdk_service'
@@ -145,10 +146,13 @@ export default class SessionsController {
    * @index
    * @summary List sessions
    * @tag Sessions
-   * @description Returns a list of sessions for the authenticated user or therapist.
-   * @responseBody 200 - {"sessions": [{"id": 1, "userId": 1, "therapistId": 1, "scheduledAt": "2026-01-25T10:00:00Z", "status": "scheduled", "user": {}, "therapist": {}}]}
+   * @description Returns a paginated list of sessions. Query: page, limit, status (optional).
+   * @responseBody 200 - {"sessions": [...], "meta": {"page": 1, "limit": 20, "total": 42}}
    */
-  async index({ auth, response }: HttpContext) {
+  async index({ auth, request, response }: HttpContext) {
+    const { page = defaultListParams.page, limit = defaultListParams.limit, status } =
+      await sessionsListValidator.validate(request.qs())
+
     let sessionsQuery = Session.query().preload('user').preload('therapist')
 
     if (auth.use('therapist').isAuthenticated) {
@@ -159,8 +163,41 @@ export default class SessionsController {
       sessionsQuery = sessionsQuery.where('user_id', user.id)
     }
 
-    const sessions = await sessionsQuery.orderBy('scheduled_at', 'desc')
-    return response.ok({ sessions })
+    if (status) {
+      sessionsQuery = sessionsQuery.where('status', status)
+    }
+
+    const total = await sessionsQuery.clone().count('* as total').first()
+    const totalCount = Number(total?.$extras?.total ?? 0)
+
+    const sessions = await sessionsQuery
+      .orderBy('scheduled_at', 'desc')
+      .offset((page - 1) * limit)
+      .limit(limit)
+
+    return response.ok({
+      sessions: sessions.map((s) => ({
+        id: s.id,
+        userId: s.userId,
+        therapistId: s.therapistId,
+        scheduledAt: s.scheduledAt.toISO(),
+        durationMinutes: s.durationMinutes,
+        status: s.status,
+        meetingId: s.meetingId,
+        sentiment: s.sentiment,
+        engagementLevel: s.engagementLevel,
+        clinicalNotes: s.clinicalNotes,
+        followUpAt: s.followUpAt?.toISO() ?? null,
+        summaryCompletedAt: s.summaryCompletedAt?.toISO() ?? null,
+        user: s.user
+          ? { id: s.user.id, fullName: s.user.fullName, email: s.user.email, avatarUrl: s.user.avatarUrl }
+          : undefined,
+        therapist: s.therapist
+          ? { id: s.therapist.id, fullName: s.therapist.fullName, professionalTitle: s.therapist.professionalTitle }
+          : undefined,
+      })),
+      meta: { page, limit, total: totalCount },
+    })
   }
 
   /**
