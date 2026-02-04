@@ -210,6 +210,9 @@ router
           .get('/:id', [SessionsController, 'show'])
           .use(middleware.auth({ guards: ['api', 'therapist'] }))
         router
+          .post('/test-room', [SessionsController, 'createTestRoom'])
+          .use(middleware.auth({ guards: ['therapist'] }))
+        router
           .post('/:id/create-room', [SessionsController, 'createRoom'])
           .use(middleware.auth({ guards: ['therapist'] }))
         router

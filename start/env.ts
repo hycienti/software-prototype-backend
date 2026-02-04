@@ -51,7 +51,9 @@ export default await Env.create(new URL('../', import.meta.url), {
   PUSHER_CLUSTER: Env.schema.string.optional(),
   PUSHER_USE_TLS: Env.schema.boolean.optional(),
 
-  /** VideoSDK (LiveVideoSDK) – create rooms for therapist video sessions */
+  /** VideoSDK: use API_KEY + SECRET to generate JWTs (recommended), or a pre-generated VIDEO_SDK_TOKEN */
+  VIDEO_SDK_API_KEY: Env.schema.string.optional(),
+  VIDEO_SDK_SECRET: Env.schema.string.optional(),
   VIDEO_SDK_TOKEN: Env.schema.string.optional(),
 
   /*

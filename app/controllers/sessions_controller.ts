@@ -76,6 +76,28 @@ export default class SessionsController {
   }
 
   /**
+   * @createTestRoom
+   * @summary Create a video room for testing (Therapist only)
+   * @tag Sessions
+   * @description Creates a VideoSDK room via backend (no session required). Returns meetingId and token for client. Use for "Test video call" in the app.
+   * @responseBody 200 - {"meetingId": "xxx", "token": "..."}
+   */
+  async createTestRoom({ auth, response }: HttpContext) {
+    auth.use('therapist').authenticate()
+    const videoSdk = new VideoSdkService()
+    try {
+      const { roomId, token } = await videoSdk.createRoom()
+      logger.info({ meetingId: roomId }, 'Test video room created')
+      return response.ok({ meetingId: roomId, token })
+    } catch (err) {
+      logger.error({ err }, 'Failed to create test video room')
+      return response.serviceUnavailable({
+        message: err instanceof Error ? err.message : 'Failed to create video room',
+      })
+    }
+  }
+
+  /**
    * @createRoom
    * @summary Create video room for a session (Therapist only)
    * @tag Sessions
