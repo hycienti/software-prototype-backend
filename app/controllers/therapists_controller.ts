@@ -6,6 +6,7 @@ import {
   emailValidator,
   verifyOtpValidator,
   therapistOnboardingValidator,
+  therapistUpdateProfileValidator,
 } from '#validators/auth_validator'
 import { DateTime } from 'luxon'
 import { Specialty, SPECIALTIES } from '#enums/specialty'
@@ -232,6 +233,7 @@ export default class TherapistsController {
    */
   async me({ auth, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
+    await therapist.refresh()
 
     return response.ok({
       therapist: {
@@ -243,6 +245,40 @@ export default class TherapistsController {
         identityUrl: therapist.identityUrl,
         specialties: therapist.specialties,
         emailVerified: therapist.emailVerified,
+        acceptingNewClients: therapist.acceptingNewClients ?? true,
+        personalMeetingLink: therapist.personalMeetingLink ?? null,
+        availabilitySlots: therapist.availabilitySlots ?? [],
+        lastLoginAt: therapist.lastLoginAt?.toISO(),
+        createdAt: therapist.createdAt.toISO(),
+      },
+    })
+  }
+
+  /**
+   * @updateMe
+   * @summary Update current therapist profile
+   * @tag Therapist Auth
+   */
+  async updateMe({ auth, request, response }: HttpContext) {
+    const therapist = auth.use('therapist').user!
+    const payload = await therapistUpdateProfileValidator.validate(request.all())
+
+    therapist.merge(payload)
+    await therapist.save()
+
+    return response.ok({
+      therapist: {
+        id: therapist.id,
+        email: therapist.email,
+        fullName: therapist.fullName,
+        professionalTitle: therapist.professionalTitle,
+        licenseUrl: therapist.licenseUrl,
+        identityUrl: therapist.identityUrl,
+        specialties: therapist.specialties,
+        emailVerified: therapist.emailVerified,
+        acceptingNewClients: therapist.acceptingNewClients ?? true,
+        personalMeetingLink: therapist.personalMeetingLink ?? null,
+        availabilitySlots: therapist.availabilitySlots ?? [],
         lastLoginAt: therapist.lastLoginAt?.toISO(),
         createdAt: therapist.createdAt.toISO(),
       },

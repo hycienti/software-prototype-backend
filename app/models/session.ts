@@ -25,6 +25,9 @@ export default class Session extends BaseModel {
   declare status: SessionStatus
 
   @column()
+  declare meetingId: string | null
+
+  @column()
   declare sentiment: SessionSentiment | null
 
   @column()
