@@ -28,6 +28,7 @@ const TherapistDashboardController = () => import('#controllers/therapist_dashbo
 const TherapistClientsController = () => import('#controllers/therapist_clients_controller')
 const TherapistAvailabilityController = () => import('#controllers/therapist_availability_controller')
 const TherapistWalletController = () => import('#controllers/therapist_wallet_controller')
+const NotificationModuleController = () => import('#controllers/notification_module_controller')
 
 router.get('/', async () => ({
   status: 'ok',
@@ -231,5 +232,44 @@ router
       })
       .prefix('/notifications')
       .use(middleware.auth())
+
+    // Notification module: CRUD for channels, categories, types, templates; list deliveries
+    router
+      .group(() => {
+        router.get('/', [NotificationModuleController, 'channels'])
+        router.get('/:id', [NotificationModuleController, 'showChannel'])
+        router.post('/', [NotificationModuleController, 'storeChannel'])
+        router.patch('/:id', [NotificationModuleController, 'updateChannel'])
+        router.delete('/:id', [NotificationModuleController, 'destroyChannel'])
+      })
+      .prefix('/notification-channels')
+    router
+      .group(() => {
+        router.get('/', [NotificationModuleController, 'categories'])
+        router.get('/:id', [NotificationModuleController, 'showCategory'])
+        router.post('/', [NotificationModuleController, 'storeCategory'])
+        router.patch('/:id', [NotificationModuleController, 'updateCategory'])
+        router.delete('/:id', [NotificationModuleController, 'destroyCategory'])
+      })
+      .prefix('/notification-categories')
+    router
+      .group(() => {
+        router.get('/', [NotificationModuleController, 'types'])
+        router.get('/:id', [NotificationModuleController, 'showType'])
+        router.post('/', [NotificationModuleController, 'storeType'])
+        router.patch('/:id', [NotificationModuleController, 'updateType'])
+        router.delete('/:id', [NotificationModuleController, 'destroyType'])
+      })
+      .prefix('/notification-types')
+    router
+      .group(() => {
+        router.get('/', [NotificationModuleController, 'templates'])
+        router.get('/:id', [NotificationModuleController, 'showTemplate'])
+        router.post('/', [NotificationModuleController, 'storeTemplate'])
+        router.patch('/:id', [NotificationModuleController, 'updateTemplate'])
+        router.delete('/:id', [NotificationModuleController, 'destroyTemplate'])
+      })
+      .prefix('/notification-templates')
+    router.get('/notification-deliveries', [NotificationModuleController, 'deliveries'])
   })
   .prefix('/api/v1')

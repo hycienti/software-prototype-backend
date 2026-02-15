@@ -1,7 +1,8 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Therapist from '#models/therapist'
+import AvailabilitySlot from '#models/availability_slot'
 import Otp from '#models/otp'
-import EmailService from '#services/email_service'
+import notificationSendService from '#services/notification_send_service'
 import {
   emailValidator,
   verifyOtpValidator,
@@ -12,8 +13,19 @@ import { DateTime } from 'luxon'
 import { Specialty, SPECIALTIES } from '#enums/specialty'
 import crypto from 'node:crypto'
 
+function serializeAvailabilitySlot(slot: AvailabilitySlot) {
+  return {
+    id: String(slot.id),
+    label: slot.label ?? undefined,
+    type: slot.type,
+    days: slot.days ?? undefined,
+    date: slot.date ? slot.date.toISODate()! : undefined,
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+  }
+}
+
 export default class TherapistsController {
-  private emailService = new EmailService()
 
   /**
    * @sendOtp
@@ -53,7 +65,24 @@ export default class TherapistsController {
     })
 
     try {
-      await this.emailService.sendOTP(email, code)
+      const { ok } = await notificationSendService.send({
+        notificationTypeSlug: 'otp_verification',
+        channelSlug: 'email',
+        productType: 'therapist',
+        recipientType: 'therapist',
+        recipientId: 0,
+        recipientEmail: email,
+        variables: {
+          title: 'Your Verification Code',
+          heading: 'Verification Code',
+          body:
+            'Please use the following code to verify your email address and continue with your Haven Therapist account:',
+          otpCode: code,
+          footer:
+            'This code will expire in 10 minutes. If you didn\'t request this code, please ignore this email.',
+        },
+      })
+      if (!ok) throw new Error('Send failed')
     } catch (error: any) {
       console.error('Failed to send OTP email:', error)
       await otp.delete()
@@ -234,6 +263,7 @@ export default class TherapistsController {
   async me({ auth, response }: HttpContext) {
     const therapist = auth.use('therapist').user!
     await therapist.refresh()
+    await therapist.load('availabilitySlots', (q) => q.orderBy('sort_order'))
 
     return response.ok({
       therapist: {
@@ -247,7 +277,7 @@ export default class TherapistsController {
         emailVerified: therapist.emailVerified,
         acceptingNewClients: therapist.acceptingNewClients ?? true,
         personalMeetingLink: therapist.personalMeetingLink ?? null,
-        availabilitySlots: therapist.availabilitySlots ?? [],
+        availabilitySlots: (therapist.availabilitySlots ?? []).map(serializeAvailabilitySlot),
         lastLoginAt: therapist.lastLoginAt?.toISO(),
         createdAt: therapist.createdAt.toISO(),
       },
@@ -265,6 +295,7 @@ export default class TherapistsController {
 
     therapist.merge(payload)
     await therapist.save()
+    await therapist.load('availabilitySlots', (q) => q.orderBy('sort_order'))
 
     return response.ok({
       therapist: {
@@ -278,7 +309,7 @@ export default class TherapistsController {
         emailVerified: therapist.emailVerified,
         acceptingNewClients: therapist.acceptingNewClients ?? true,
         personalMeetingLink: therapist.personalMeetingLink ?? null,
-        availabilitySlots: therapist.availabilitySlots ?? [],
+        availabilitySlots: (therapist.availabilitySlots ?? []).map(serializeAvailabilitySlot),
         lastLoginAt: therapist.lastLoginAt?.toISO(),
         createdAt: therapist.createdAt.toISO(),
       },

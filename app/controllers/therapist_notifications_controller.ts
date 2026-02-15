@@ -19,18 +19,19 @@ export default class TherapistNotificationsController {
     const isReadFilter =
       raw.isRead === undefined ? undefined : raw.isRead === 'true' || raw.isRead === true
 
-    let query = Notification.query()
-      .where('therapist_id', therapist.id)
-      .orderBy('created_at', 'desc')
+    let baseQuery = Notification.query().where('therapist_id', therapist.id)
 
     if (isReadFilter !== undefined) {
-      query = query.where('is_read', isReadFilter)
+      baseQuery = baseQuery.where('is_read', isReadFilter)
     }
 
-    const total = await query.clone().count('* as total').first()
+    const total = await baseQuery.clone().count('* as total').first()
     const totalCount = Number(total?.$extras?.total ?? 0)
 
-    const notifications = await query.offset((page - 1) * limit).limit(limit)
+    const notifications = await baseQuery
+      .orderBy('created_at', 'desc')
+      .offset((page - 1) * limit)
+      .limit(limit)
 
     return response.ok({
       notifications: notifications.map((n) => ({

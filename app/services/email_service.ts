@@ -22,6 +22,36 @@ export default class EmailService {
   }
 
   /**
+   * Send an email with custom subject, HTML and optional plain text.
+   * Used by the notification module for template-based emails.
+   */
+  async sendWithContent(
+    to: string,
+    subject: string,
+    html: string,
+    text?: string
+  ): Promise<{ success: true; id?: string } | { success: false; error: string }> {
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: `${this.fromName} <${this.fromEmail}>`,
+        to: [to],
+        subject,
+        html,
+        text: text ?? undefined,
+      })
+
+      if (error) {
+        console.error('Resend API error:', error)
+        return { success: false, error: error.message || 'Unknown error' }
+      }
+      return { success: true, id: data?.id }
+    } catch (error: any) {
+      console.error('Error sending email:', error)
+      return { success: false, error: error.message || 'Unknown error' }
+    }
+  }
+
+  /**
    * Send OTP email to user
    * @param email - Recipient email address
    * @param otpCode - 6-digit OTP code

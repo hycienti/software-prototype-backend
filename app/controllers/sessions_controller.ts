@@ -6,6 +6,7 @@ import { sessionsListValidator, defaultListParams } from '#validators/list_valid
 import { SessionStatus } from '#enums/session'
 import { DateTime } from 'luxon'
 import { VideoSdkService } from '#services/videosdk_service'
+import { findMatchingSlot } from '#services/availability_service'
 import logger from '@adonisjs/core/services/logger'
 
 export default class SessionsController {
@@ -45,6 +46,7 @@ export default class SessionsController {
         id: session.id,
         userId: session.userId,
         therapistId: session.therapistId,
+        availabilitySlotId: session.availabilitySlotId,
         scheduledAt: session.scheduledAt.toISO(),
         durationMinutes: session.durationMinutes,
         status: session.status,
@@ -153,15 +155,35 @@ export default class SessionsController {
       return response.notFound({ message: 'Therapist not found' })
     }
 
+    const scheduledAt = DateTime.fromISO(payload.scheduledAt)
+    const durationMinutes = payload.durationMinutes ?? 50
+    const slot = await findMatchingSlot(therapist.id, scheduledAt, durationMinutes)
+    if (!slot) {
+      return response.badRequest({
+        message: 'The requested time is not within the therapist’s availability. Please choose a time that falls within their available slots.',
+      })
+    }
+
     const session = await Session.create({
       userId: user.id,
       therapistId: therapist.id,
-      scheduledAt: DateTime.fromISO(payload.scheduledAt),
-      durationMinutes: payload.durationMinutes || 50,
+      availabilitySlotId: slot.id,
+      scheduledAt,
+      durationMinutes,
       status: SessionStatus.SCHEDULED,
     })
 
-    return response.created({ session })
+    return response.created({
+      session: {
+        id: session.id,
+        userId: session.userId,
+        therapistId: session.therapistId,
+        availabilitySlotId: session.availabilitySlotId,
+        scheduledAt: session.scheduledAt.toISO(),
+        durationMinutes: session.durationMinutes,
+        status: session.status,
+      },
+    })
   }
 
   /**
@@ -202,6 +224,7 @@ export default class SessionsController {
         id: s.id,
         userId: s.userId,
         therapistId: s.therapistId,
+        availabilitySlotId: s.availabilitySlotId,
         scheduledAt: s.scheduledAt.toISO(),
         durationMinutes: s.durationMinutes,
         status: s.status,
