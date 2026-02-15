@@ -60,4 +60,30 @@ export const walletListValidator = vine.compile(
   })
 )
 
+/**
+ * Notification templates list: optional filters.
+ */
+export const notificationTemplatesListValidator = vine.compile(
+  vine.object({
+    page: vine.number().positive().optional(),
+    limit: vine.number().positive().max(MAX_LIMIT).optional(),
+    notificationTypeId: vine.number().positive().optional(),
+    channelId: vine.number().positive().optional(),
+    productType: vine.enum(['user', 'therapist']).optional(),
+  })
+)
+
+/**
+ * Notification deliveries list: pagination + optional filters.
+ */
+export const notificationDeliveriesListValidator = vine.compile(
+  vine.object({
+    page: vine.number().positive().optional(),
+    limit: vine.number().positive().max(MAX_LIMIT).optional(),
+    status: vine.enum(['pending', 'sent', 'failed']).optional(),
+    recipientType: vine.enum(['user', 'therapist']).optional(),
+    notificationTypeSlug: vine.string().trim().maxLength(64).optional(),
+  })
+)
+
 export { DEFAULT_LIMIT, MAX_LIMIT }

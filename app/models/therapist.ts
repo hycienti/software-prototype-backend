@@ -1,7 +1,9 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column } from '@adonisjs/lucid/orm'
+import { BaseModel, column, hasMany } from '@adonisjs/lucid/orm'
+import type { HasMany } from '@adonisjs/lucid/types/relations'
 import { Specialty } from '#enums/specialty'
 import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
+import AvailabilitySlot from '#models/availability_slot'
 
 export default class Therapist extends BaseModel {
   @column({ isPrimary: true })
@@ -40,15 +42,6 @@ export default class Therapist extends BaseModel {
   @column()
   declare personalMeetingLink: string | null
 
-  @column({
-    prepare: (value: Record<string, unknown>[] | null) => (value ? JSON.stringify(value) : null),
-    consume: (value: string | Record<string, unknown>[] | null) => {
-      if (!value) return null
-      return typeof value === 'string' ? JSON.parse(value) : value
-    },
-  })
-  declare availabilitySlots: Record<string, unknown>[] | null
-
   @column.dateTime()
   declare lastLoginAt: DateTime | null
 
@@ -57,6 +50,9 @@ export default class Therapist extends BaseModel {
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
+
+  @hasMany(() => AvailabilitySlot)
+  declare availabilitySlots: HasMany<typeof AvailabilitySlot>
 
   static accessTokens = DbAccessTokensProvider.forModel(Therapist, {
     expiresIn: '30 days',

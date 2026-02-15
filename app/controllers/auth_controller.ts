@@ -1,7 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import User from '#models/user'
 import Otp from '#models/otp'
-import EmailService from '#services/email_service'
+import notificationSendService from '#services/notification_send_service'
 import {
   emailValidator,
   verifyOtpValidator,
@@ -11,7 +11,6 @@ import { DateTime } from 'luxon'
 import crypto from 'node:crypto'
 
 export default class AuthController {
-  private emailService = new EmailService()
 
   /**
    * @sendOtp
@@ -54,12 +53,28 @@ export default class AuthController {
       expiresAt: DateTime.now().plus({ minutes: 10 }),
     })
 
-    // Send OTP email
+    // Send OTP email via notification module (template-based, with retry support)
     try {
-      await this.emailService.sendOTP(email, code)
+      const { ok } = await notificationSendService.send({
+        notificationTypeSlug: 'otp_verification',
+        channelSlug: 'email',
+        productType: 'user',
+        recipientType: 'user',
+        recipientId: 0,
+        recipientEmail: email,
+        variables: {
+          title: 'Your Verification Code',
+          heading: 'Verification Code',
+          body:
+            'Please use the following code to verify your email address and continue with your Haven account:',
+          otpCode: code,
+          footer:
+            'This code will expire in 10 minutes. If you didn\'t request this code, please ignore this email.',
+        },
+      })
+      if (!ok) throw new Error('Send failed')
     } catch (error: any) {
       console.error('Failed to send OTP email:', error)
-      // Delete OTP record if email sending fails
       await otp.delete()
       return response.internalServerError({
         message: 'Failed to send OTP email. Please try again later.',

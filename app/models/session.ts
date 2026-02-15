@@ -3,17 +3,25 @@ import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Therapist from '#models/therapist'
+import AvailabilitySlot from '#models/availability_slot'
 import { SessionStatus, SessionSentiment } from '#enums/session'
 
 export default class Session extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-  @column()
-  declare userId: number
+  @column({
+    consume: (value: number | null | undefined) => value ?? null,
+  })
+  declare userId: number | null
 
   @column()
   declare therapistId: number
+
+  @column({
+    consume: (value: number | null | undefined) => value ?? null,
+  })
+  declare availabilitySlotId: number | null
 
   @column.dateTime()
   declare scheduledAt: DateTime
@@ -53,4 +61,7 @@ export default class Session extends BaseModel {
 
   @belongsTo(() => Therapist)
   declare therapist: BelongsTo<typeof Therapist>
+
+  @belongsTo(() => AvailabilitySlot)
+  declare availabilitySlot: BelongsTo<typeof AvailabilitySlot>
 }

@@ -28,6 +28,7 @@ const TherapistDashboardController = () => import('#controllers/therapist_dashbo
 const TherapistClientsController = () => import('#controllers/therapist_clients_controller')
 const TherapistAvailabilityController = () => import('#controllers/therapist_availability_controller')
 const TherapistWalletController = () => import('#controllers/therapist_wallet_controller')
+const NotificationModuleController = () => import('#controllers/notification_module_controller')
 
 router.get('/', async () => ({
   status: 'ok',
@@ -231,5 +232,15 @@ router
       })
       .prefix('/notifications')
       .use(middleware.auth())
+
+    // Notification module (channels, types, templates, deliveries, send, retry)
+    router.get('/notification-channels', [NotificationModuleController, 'channels'])
+    router.get('/notification-categories', [NotificationModuleController, 'categories'])
+    router.get('/notification-types', [NotificationModuleController, 'types'])
+    router.get('/notification-templates', [NotificationModuleController, 'templates'])
+    router.get('/notification-deliveries', [NotificationModuleController, 'deliveries'])
+    router.post('/notifications/send', [NotificationModuleController, 'send'])
+    router.post('/notification-deliveries/retry-failed', [NotificationModuleController, 'retryFailed'])
+    router.post('/notification-deliveries/:id/retry', [NotificationModuleController, 'retry'])
   })
   .prefix('/api/v1')
