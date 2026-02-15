@@ -4,37 +4,90 @@ import NotificationCategory from '#models/notification_category'
 import NotificationType from '#models/notification_type'
 import NotificationTemplate from '#models/notification_template'
 import NotificationDelivery from '#models/notification_delivery'
-import notificationSendService from '#services/notification_send_service'
 import {
   notificationTemplatesListValidator,
   notificationDeliveriesListValidator,
   defaultListParams,
 } from '#validators/list_validator'
-import { sendNotificationValidator } from '#validators/notification_validator'
+import {
+  createChannelValidator,
+  updateChannelValidator,
+  createCategoryValidator,
+  updateCategoryValidator,
+  createTypeValidator,
+  updateTypeValidator,
+  createTemplateValidator,
+  updateTemplateValidator,
+} from '#validators/notification_validator'
 
 /**
- * APIs for the notification module: channels, categories, types, templates, deliveries, send, retry.
+ * APIs for the notification module: CRUD for channels, categories, types, templates; list deliveries.
+ * Sending is done via notificationSendService in the backend. Retries run via background job (Ace command).
  */
 export default class NotificationModuleController {
-  /**
-   * GET /notification-channels
-   */
+  // ---------- Channels ----------
   async channels({ response }: HttpContext) {
     const list = await NotificationChannel.query().orderBy('id', 'asc')
     return response.ok(list.map((c) => ({ id: c.id, name: c.name, slug: c.slug })))
   }
 
-  /**
-   * GET /notification-categories
-   */
+  async showChannel({ params, response }: HttpContext) {
+    const channel = await NotificationChannel.findOrFail(params.id)
+    return response.ok({ id: channel.id, name: channel.name, slug: channel.slug })
+  }
+
+  async storeChannel({ request, response }: HttpContext) {
+    const body = await createChannelValidator.validate(request.all())
+    const channel = await NotificationChannel.create(body)
+    return response.created({ id: channel.id, name: channel.name, slug: channel.slug })
+  }
+
+  async updateChannel({ params, request, response }: HttpContext) {
+    const channel = await NotificationChannel.findOrFail(params.id)
+    const body = await updateChannelValidator.validate(request.all())
+    channel.merge(body)
+    await channel.save()
+    return response.ok({ id: channel.id, name: channel.name, slug: channel.slug })
+  }
+
+  async destroyChannel({ params, response }: HttpContext) {
+    const channel = await NotificationChannel.findOrFail(params.id)
+    await channel.delete()
+    return response.noContent()
+  }
+
+  // ---------- Categories ----------
   async categories({ response }: HttpContext) {
     const list = await NotificationCategory.query().orderBy('id', 'asc')
     return response.ok(list.map((c) => ({ id: c.id, name: c.name, slug: c.slug })))
   }
 
-  /**
-   * GET /notification-types
-   */
+  async showCategory({ params, response }: HttpContext) {
+    const category = await NotificationCategory.findOrFail(params.id)
+    return response.ok({ id: category.id, name: category.name, slug: category.slug })
+  }
+
+  async storeCategory({ request, response }: HttpContext) {
+    const body = await createCategoryValidator.validate(request.all())
+    const category = await NotificationCategory.create(body)
+    return response.created({ id: category.id, name: category.name, slug: category.slug })
+  }
+
+  async updateCategory({ params, request, response }: HttpContext) {
+    const category = await NotificationCategory.findOrFail(params.id)
+    const body = await updateCategoryValidator.validate(request.all())
+    category.merge(body)
+    await category.save()
+    return response.ok({ id: category.id, name: category.name, slug: category.slug })
+  }
+
+  async destroyCategory({ params, response }: HttpContext) {
+    const category = await NotificationCategory.findOrFail(params.id)
+    await category.delete()
+    return response.noContent()
+  }
+
+  // ---------- Types ----------
   async types({ response }: HttpContext) {
     const list = await NotificationType.query()
       .preload('category')
@@ -51,9 +104,55 @@ export default class NotificationModuleController {
     )
   }
 
-  /**
-   * GET /notification-templates?notificationTypeId=&channelId=&productType=
-   */
+  async showType({ params, response }: HttpContext) {
+    const type = await NotificationType.query().where('id', params.id).preload('category').firstOrFail()
+    return response.ok({
+      id: type.id,
+      categoryId: type.categoryId,
+      categorySlug: type.category.slug,
+      name: type.name,
+      slug: type.slug,
+      description: type.description,
+    })
+  }
+
+  async storeType({ request, response }: HttpContext) {
+    const body = await createTypeValidator.validate(request.all())
+    const type = await NotificationType.create(body)
+    await type.load('category')
+    return response.created({
+      id: type.id,
+      categoryId: type.categoryId,
+      categorySlug: type.category.slug,
+      name: type.name,
+      slug: type.slug,
+      description: type.description,
+    })
+  }
+
+  async updateType({ params, request, response }: HttpContext) {
+    const type = await NotificationType.findOrFail(params.id)
+    const body = await updateTypeValidator.validate(request.all())
+    type.merge(body)
+    await type.save()
+    await type.load('category')
+    return response.ok({
+      id: type.id,
+      categoryId: type.categoryId,
+      categorySlug: type.category.slug,
+      name: type.name,
+      slug: type.slug,
+      description: type.description,
+    })
+  }
+
+  async destroyType({ params, response }: HttpContext) {
+    const type = await NotificationType.findOrFail(params.id)
+    await type.delete()
+    return response.noContent()
+  }
+
+  // ---------- Templates ----------
   async templates({ request, response }: HttpContext) {
     const raw = await notificationTemplatesListValidator.validate(request.qs())
     const page = raw.page ?? defaultListParams.page
@@ -84,15 +183,111 @@ export default class NotificationModuleController {
         productType: t.productType,
         locale: t.locale,
         subject: t.subject,
+        bodyHtml: t.bodyHtml,
+        bodyText: t.bodyText,
         templateVariables: t.templateVariables,
       })),
       meta: { page, limit, total: totalCount },
     })
   }
 
-  /**
-   * GET /notification-deliveries?status=&recipientType=&notificationTypeSlug=&page=&limit=
-   */
+  async showTemplate({ params, response }: HttpContext) {
+    const template = await NotificationTemplate.query()
+      .where('id', params.id)
+      .preload('notificationType')
+      .preload('channel')
+      .firstOrFail()
+    return response.ok({
+      id: template.id,
+      notificationTypeId: template.notificationTypeId,
+      notificationTypeSlug: template.notificationType.slug,
+      channelId: template.channelId,
+      channelSlug: template.channel.slug,
+      productType: template.productType,
+      locale: template.locale,
+      subject: template.subject,
+      bodyHtml: template.bodyHtml,
+      bodyText: template.bodyText,
+      templateVariables: template.templateVariables,
+    })
+  }
+
+  async storeTemplate({ request, response }: HttpContext) {
+    const body = await createTemplateValidator.validate(request.all())
+    const template = await NotificationTemplate.create({
+      notificationTypeId: body.notificationTypeId,
+      channelId: body.channelId,
+      productType: body.productType,
+      locale: body.locale ?? 'en',
+      subject: body.subject ?? null,
+      bodyHtml: body.bodyHtml,
+      bodyText: body.bodyText ?? null,
+      templateVariables: body.templateVariables ?? [],
+    })
+    await template.load('notificationType')
+    await template.load('channel')
+    return response.created({
+      id: template.id,
+      notificationTypeId: template.notificationTypeId,
+      notificationTypeSlug: template.notificationType.slug,
+      channelId: template.channelId,
+      channelSlug: template.channel.slug,
+      productType: template.productType,
+      locale: template.locale,
+      subject: template.subject,
+      bodyHtml: template.bodyHtml,
+      bodyText: template.bodyText,
+      templateVariables: template.templateVariables,
+    })
+  }
+
+  async updateTemplate({ params, request, response }: HttpContext) {
+    const template = await NotificationTemplate.findOrFail(params.id)
+    const body = await updateTemplateValidator.validate(request.all())
+    const updates: Partial<{
+      notificationTypeId: number
+      channelId: number
+      productType: string
+      locale: string
+      subject: string | null
+      bodyHtml: string
+      bodyText: string | null
+      templateVariables: string[]
+    }> = {}
+    if (body.notificationTypeId !== undefined) updates.notificationTypeId = body.notificationTypeId
+    if (body.channelId !== undefined) updates.channelId = body.channelId
+    if (body.productType !== undefined) updates.productType = body.productType
+    if (body.locale !== undefined) updates.locale = body.locale
+    if (body.subject !== undefined) updates.subject = body.subject
+    if (body.bodyHtml !== undefined) updates.bodyHtml = body.bodyHtml
+    if (body.bodyText !== undefined) updates.bodyText = body.bodyText
+    if (body.templateVariables !== undefined) updates.templateVariables = body.templateVariables
+    template.merge(updates)
+    await template.save()
+    await template.load('notificationType')
+    await template.load('channel')
+    return response.ok({
+      id: template.id,
+      notificationTypeId: template.notificationTypeId,
+      notificationTypeSlug: template.notificationType.slug,
+      channelId: template.channelId,
+      channelSlug: template.channel.slug,
+      productType: template.productType,
+      locale: template.locale,
+      subject: template.subject,
+      bodyHtml: template.bodyHtml,
+      bodyText: template.bodyText,
+      templateVariables: template.templateVariables,
+    })
+  }
+
+  async destroyTemplate({ params, response }: HttpContext) {
+    const template = await NotificationTemplate.findOrFail(params.id)
+    await template.delete()
+    return response.noContent()
+  }
+
+  // ---------- Deliveries (read-only list) ----------
   async deliveries({ request, response }: HttpContext) {
     const raw = await notificationDeliveriesListValidator.validate(request.qs())
     const page = raw.page ?? defaultListParams.page
@@ -133,62 +328,5 @@ export default class NotificationModuleController {
       })),
       meta: { page, limit, total: totalCount },
     })
-  }
-
-  /**
-   * POST /notifications/send - send a notification using a template (internal/admin).
-   */
-  async send({ request, response }: HttpContext) {
-    const body = await sendNotificationValidator.validate(request.all())
-
-    const variables: Record<string, string | number> = {}
-    for (const [k, v] of Object.entries(body.variables || {})) {
-      if (v !== undefined && v !== null) variables[k] = typeof v === 'number' ? v : String(v)
-    }
-
-    try {
-      const { delivery, ok } = await notificationSendService.send({
-        notificationTypeSlug: body.notificationTypeSlug,
-        channelSlug: body.channelSlug,
-        productType: body.productType,
-        recipientType: body.recipientType,
-        recipientId: body.recipientId,
-        recipientEmail: body.recipientEmail,
-        variables,
-        inAppTitle: body.inAppTitle,
-        inAppMessage: body.inAppMessage,
-        inAppData: body.inAppData as Record<string, unknown> | undefined,
-        maxRetries: body.maxRetries,
-      })
-
-      return response.ok({
-        deliveryId: delivery.id,
-        status: delivery.status,
-        ok,
-      })
-    } catch (err: any) {
-      return response.badRequest({ message: err.message ?? 'Failed to send notification' })
-    }
-  }
-
-  /**
-   * POST /notification-deliveries/:id/retry - retry a single failed delivery.
-   */
-  async retry({ params, response }: HttpContext) {
-    try {
-      const result = await notificationSendService.retryDelivery(Number(params.id))
-      return response.ok({ ok: result.ok, error: result.error })
-    } catch (_) {
-      return response.notFound({ message: 'Delivery not found or not retryable' })
-    }
-  }
-
-  /**
-   * POST /notification-deliveries/retry-failed - process all failed deliveries with retries left.
-   */
-  async retryFailed({ request, response }: HttpContext) {
-    const limit = Math.min(Number(request.input('limit', 50)), 100)
-    const { processed, succeeded } = await notificationSendService.processRetries(limit)
-    return response.ok({ processed, succeeded })
   }
 }

@@ -233,14 +233,43 @@ router
       .prefix('/notifications')
       .use(middleware.auth())
 
-    // Notification module (channels, types, templates, deliveries, send, retry)
-    router.get('/notification-channels', [NotificationModuleController, 'channels'])
-    router.get('/notification-categories', [NotificationModuleController, 'categories'])
-    router.get('/notification-types', [NotificationModuleController, 'types'])
-    router.get('/notification-templates', [NotificationModuleController, 'templates'])
+    // Notification module: CRUD for channels, categories, types, templates; list deliveries
+    router
+      .group(() => {
+        router.get('/', [NotificationModuleController, 'channels'])
+        router.get('/:id', [NotificationModuleController, 'showChannel'])
+        router.post('/', [NotificationModuleController, 'storeChannel'])
+        router.patch('/:id', [NotificationModuleController, 'updateChannel'])
+        router.delete('/:id', [NotificationModuleController, 'destroyChannel'])
+      })
+      .prefix('/notification-channels')
+    router
+      .group(() => {
+        router.get('/', [NotificationModuleController, 'categories'])
+        router.get('/:id', [NotificationModuleController, 'showCategory'])
+        router.post('/', [NotificationModuleController, 'storeCategory'])
+        router.patch('/:id', [NotificationModuleController, 'updateCategory'])
+        router.delete('/:id', [NotificationModuleController, 'destroyCategory'])
+      })
+      .prefix('/notification-categories')
+    router
+      .group(() => {
+        router.get('/', [NotificationModuleController, 'types'])
+        router.get('/:id', [NotificationModuleController, 'showType'])
+        router.post('/', [NotificationModuleController, 'storeType'])
+        router.patch('/:id', [NotificationModuleController, 'updateType'])
+        router.delete('/:id', [NotificationModuleController, 'destroyType'])
+      })
+      .prefix('/notification-types')
+    router
+      .group(() => {
+        router.get('/', [NotificationModuleController, 'templates'])
+        router.get('/:id', [NotificationModuleController, 'showTemplate'])
+        router.post('/', [NotificationModuleController, 'storeTemplate'])
+        router.patch('/:id', [NotificationModuleController, 'updateTemplate'])
+        router.delete('/:id', [NotificationModuleController, 'destroyTemplate'])
+      })
+      .prefix('/notification-templates')
     router.get('/notification-deliveries', [NotificationModuleController, 'deliveries'])
-    router.post('/notifications/send', [NotificationModuleController, 'send'])
-    router.post('/notification-deliveries/retry-failed', [NotificationModuleController, 'retryFailed'])
-    router.post('/notification-deliveries/:id/retry', [NotificationModuleController, 'retry'])
   })
   .prefix('/api/v1')
