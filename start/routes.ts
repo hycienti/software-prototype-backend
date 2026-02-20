@@ -144,7 +144,7 @@ router
     router
       .group(() => {
         router.post('/message', [ConversationsController, 'sendMessage'])
-        router.get('/stream/:id', [ConversationsController, 'streamMessage'])
+        router.get('/stream/status', [ConversationsController, 'getStreamStatus'])
         router.get('/history', [ConversationsController, 'getHistory'])
         router.post('/typing', [ConversationsController, 'typing'])
         router.get('/:id', [ConversationsController, 'getConversation'])

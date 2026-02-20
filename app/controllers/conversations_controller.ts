@@ -1,18 +1,18 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import { DateTime } from 'luxon'
 import Conversation from '#models/conversation'
 import Message from '#models/message'
-import OpenAIService from '#services/openai_service'
 import pusherService from '#services/pusher_service'
+import { runChatGraph } from '#orchestration/chat_graph'
+import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
 import {
   sendMessageValidator,
   getConversationHistoryValidator,
+  streamStatusValidator,
 } from '#validators/conversation_validator'
+import { streamProgressStore } from '#services/stream_progress_store'
 import logger from '@adonisjs/core/services/logger'
 
 export default class ConversationsController {
-  private openaiService = new OpenAIService()
-
   /**
    * @sendMessage
    * @summary Send a message in a conversation
@@ -20,11 +20,12 @@ export default class ConversationsController {
    * @description Send a text message and get AI response. Creates new conversation if conversationId is not provided.
    * Supports real-time streaming via Pusher on channel `conversation-{id}` with event `stream:chunk`.
    * @requestBody {"conversationId": 1, "message": "Hello", "mode": "text", "stream": true}
-   * @responseBody 200 - {"conversation": {...}, "message": {...}, "response": {...}}
-   * @responseBody 400 - {"message": "Validation error"}
-   * @responseBody 401 - {"message": "Unauthorized"}
+   * @responseBody 200 - {"success": true, "data": {"conversation": {...}, "message": {...}, "response": {...}}}
+   * @responseBody 400 - {"success": false, "error": {"code": "...", "message": "..."}}
+   * @responseBody 401 - {"success": false, "error": {"code": "UNAUTHORIZED", "message": "Unauthorized"}}
    */
-  async sendMessage({ request, response, auth }: HttpContext) {
+  async sendMessage(ctx: HttpContext) {
+    const { request, auth } = ctx
     const startTime = Date.now()
     try {
       const user = auth.user!
@@ -39,156 +40,48 @@ export default class ConversationsController {
         stream,
       })
 
-      let conversation: Conversation
-      if (payload.conversationId) {
-        conversation = await Conversation.query()
-          .where('id', payload.conversationId)
-          .where('user_id', user.id)
-          .firstOrFail()
-      } else {
-        conversation = await Conversation.create({
-          userId: user.id,
-          mode: (payload.mode as 'text' | 'voice') || 'text',
-          title: null,
-        })
-      }
-
-      const userMessage = await Message.create({
-        conversationId: conversation.id,
-        role: 'user',
-        content: payload.message,
-        metadata: null,
+      const result = await runChatGraph({
+        userId: user.id,
+        message: payload.message,
+        stream,
+        mode: (payload.mode as 'text' | 'voice') || 'text',
+        conversationId: payload.conversationId ?? undefined,
       })
-
-      const previousMessages = await Message.query()
-        .where('conversation_id', conversation.id)
-        .orderBy('created_at', 'asc')
-        .limit(20)
-
-      const chatMessages = previousMessages.map((msg) => ({
-        role: msg.role as 'user' | 'assistant' | 'system',
-        content: msg.content,
-      }))
-
-      const sentimentPromise = this.openaiService.analyzeSentiment(payload.message)
-
-      let aiResponse = ''
-      if (stream) {
-        await pusherService.stream(conversation.id, 'start', {
-          messageId: userMessage.id,
-        })
-
-        await pusherService.stream(conversation.id, 'typing', {
-          isTyping: true,
-        })
-
-        for await (const chunk of this.openaiService.generateStreamingResponse({
-          messages: chatMessages,
-          temperature: 0.7,
-          maxTokens: 1000,
-        })) {
-          aiResponse += chunk
-          await pusherService.stream(conversation.id, 'chunk', {
-            content: chunk,
-          })
-        }
-
-        await pusherService.stream(conversation.id, 'typing', {
-          isTyping: false,
-        })
-      } else {
-        await pusherService.stream(conversation.id, 'typing', {
-          isTyping: true,
-        })
-
-        aiResponse = await this.openaiService.generateResponse({
-          messages: chatMessages,
-          temperature: 0.7,
-          maxTokens: 1000,
-        })
-
-        await pusherService.stream(conversation.id, 'typing', {
-          isTyping: false,
-        })
-      }
-
-      const sentimentAnalysis = await sentimentPromise
-
-      const assistantMessage = await Message.create({
-        conversationId: conversation.id,
-        role: 'assistant',
-        content: aiResponse,
-        metadata: {
-          sentiment: sentimentAnalysis.sentiment,
-          crisisIndicators: sentimentAnalysis.crisisIndicators,
-          confidence: sentimentAnalysis.confidence,
-        },
-      })
-
-      if (stream) {
-        await pusherService.stream(conversation.id, 'complete', {
-          messageId: assistantMessage.id,
-          conversationId: conversation.id,
-        })
-      }
-
-      conversation.lastMessageAt = DateTime.now()
-      conversation.metadata = {
-        ...(conversation.metadata || {}),
-        lastSentiment: sentimentAnalysis.sentiment,
-        hasCrisisIndicators: sentimentAnalysis.crisisIndicators.length > 0,
-      }
-      await conversation.save()
-
-      if (!conversation.title && previousMessages.length === 1) {
-        const { getConversationTitlePrompt } = await import('../prompts/index.js')
-        const titlePrompt = getConversationTitlePrompt(payload.message)
-        try {
-          const titleResponse = await this.openaiService.generateResponse({
-            messages: [{ role: 'user', content: titlePrompt }],
-            temperature: 0.5,
-            maxTokens: 50,
-          })
-          conversation.title = titleResponse.trim().slice(0, 50)
-          await conversation.save()
-        } catch (error) {
-          logger.warn('Failed to generate conversation title', { error })
-        }
-      }
 
       const processingTime = Date.now() - startTime
       logger.info('Chat message processed successfully', {
         userId: user.id,
-        conversationId: conversation.id,
-        messageId: userMessage.id,
-        responseId: assistantMessage.id,
+        conversationId: result.conversation.id,
+        messageId: result.userMessage.id,
+        responseId: result.assistantMessage.id,
         processingTimeMs: processingTime,
-        sentiment: sentimentAnalysis.sentiment,
-        hasCrisisIndicators: sentimentAnalysis.crisisIndicators.length > 0,
+        sentiment: result.sentiment.sentiment,
+        hasCrisisIndicators: result.sentiment.crisisIndicators.length > 0,
       })
 
-      return response.ok({
-        conversation: {
-          id: conversation.id,
-          title: conversation.title,
-          mode: conversation.mode,
-          createdAt: conversation.createdAt,
-        },
-        message: {
-          id: userMessage.id,
-          role: userMessage.role,
-          content: userMessage.content,
-          createdAt: userMessage.createdAt,
-        },
-        response: {
-          id: assistantMessage.id,
-          role: assistantMessage.role,
-          content: assistantMessage.content,
-          metadata: assistantMessage.metadata,
-          createdAt: assistantMessage.createdAt,
-        },
-        sentiment: sentimentAnalysis,
-      })
+      return successResponse(ctx, {
+          conversation: {
+            id: result.conversation.id,
+            title: result.conversation.title,
+            mode: result.conversation.mode,
+            createdAt: result.conversation.createdAt,
+          },
+          message: {
+            id: result.userMessage.id,
+            role: result.userMessage.role,
+            content: result.userMessage.content,
+            createdAt: result.userMessage.createdAt,
+          },
+          response: {
+            id: result.assistantMessage.id,
+            role: result.assistantMessage.role,
+            content: result.assistantMessage.content,
+            metadata: result.assistantMessage.metadata,
+            createdAt: result.assistantMessage.createdAt,
+          },
+          sentiment: result.sentiment,
+        }
+      )
     } catch (error) {
       const processingTime = Date.now() - startTime
       logger.error('Error sending message', {
@@ -201,13 +94,64 @@ export default class ConversationsController {
       if (request.input('stream') === true && request.input('conversationId')) {
         await pusherService.stream(request.input('conversationId'), 'error', {
           message: error instanceof Error ? error.message : 'Failed to generate response',
+          code: ErrorCodes.INTERNAL_SERVER_ERROR,
         })
       }
 
-      return response.internalServerError({
-        message: 'Failed to process message',
-        error: error instanceof Error ? error.message : 'Unknown error',
+      return errorResponse(
+        ctx,
+        ErrorCodes.INTERNAL_SERVER_ERROR,
+        'Failed to process message',
+        500,
+        error instanceof Error ? error.message : undefined
+      )
+    }
+  }
+
+  /**
+   * @getStreamStatus
+   * @summary Get streaming progress (polling fallback)
+   * @tag Conversations
+   * @description Returns current stream status for a conversation/message. Use when Pusher is unavailable.
+   * @queryParam conversationId - Conversation ID
+   * @queryParam userMessageId - User message ID (from stream:start)
+   * @responseBody 200 - {"success": true, "data": {"status": "pending"|"complete"|"error", "chunks"?: [], "fullContent"?: string, "messageId"?: number, "sentiment"?: {}, "error"?: string}}
+   * @responseBody 404 - {"success": false, "error": {"code": "NOT_FOUND", "message": "Stream not found"}}
+   */
+  async getStreamStatus(ctx: HttpContext) {
+    const { request, auth } = ctx
+    try {
+      const user = auth.user!
+      const { conversationId, userMessageId } = await streamStatusValidator.validate(request.qs())
+
+      const conversation = await Conversation.query()
+        .where('id', conversationId)
+        .where('user_id', user.id)
+        .first()
+      if (!conversation) {
+        return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Conversation not found', 404)
+      }
+
+      const state = streamProgressStore.get(conversationId, userMessageId)
+      if (!state) {
+        return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Stream not found', 404)
+      }
+
+      return successResponse(ctx, {
+        status: state.status,
+        chunks: state.chunks,
+        fullContent: state.fullContent,
+        messageId: state.messageId,
+        sentiment: state.sentiment,
+        error: state.error,
       })
+    } catch (error) {
+      return errorResponse(
+        ctx,
+        ErrorCodes.BAD_REQUEST,
+        error instanceof Error ? error.message : 'Invalid request',
+        400
+      )
     }
   }
 
@@ -221,7 +165,8 @@ export default class ConversationsController {
    * @responseBody 200 - {"conversations": [], "pagination": {}}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async getHistory({ request, response, auth }: HttpContext) {
+  async getHistory(ctx: HttpContext) {
+    const { request, auth } = ctx
     try {
       const user = auth.user!
       const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(request.qs())
@@ -256,7 +201,7 @@ export default class ConversationsController {
         })
       )
 
-      return response.ok({
+      return successResponse(ctx, {
         conversations: conversationsWithMessages,
         pagination: {
           page: conversations.currentPage,
@@ -267,10 +212,13 @@ export default class ConversationsController {
       })
     } catch (error) {
       logger.error('Error fetching conversation history', { error, userId: auth.user?.id })
-      return response.internalServerError({
-        message: 'Failed to fetch conversation history',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
+      return errorResponse(
+        ctx,
+        ErrorCodes.INTERNAL_SERVER_ERROR,
+        'Failed to fetch conversation history',
+        500,
+        error instanceof Error ? error.message : undefined
+      )
     }
   }
 
@@ -286,7 +234,8 @@ export default class ConversationsController {
    * @responseBody 404 - {"message": "Conversation not found"}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async getConversation({ request, params, response, auth }: HttpContext) {
+  async getConversation(ctx: HttpContext) {
+    const { request, params, auth } = ctx
     try {
       const user = auth.user!
       const conversationId = Number(params.id)
@@ -303,7 +252,7 @@ export default class ConversationsController {
 
       const messages = await messagesQuery.paginate(page, limit)
 
-      return response.ok({
+      return successResponse(ctx, {
         conversation: {
           id: conversation.id,
           title: conversation.title,
@@ -331,9 +280,7 @@ export default class ConversationsController {
       })
     } catch (error) {
       logger.error('Error fetching conversation', { error, conversationId: params.id })
-      return response.notFound({
-        message: 'Conversation not found',
-      })
+      return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Conversation not found', 404)
     }
   }
 
@@ -347,7 +294,8 @@ export default class ConversationsController {
    * @responseBody 404 - {"message": "Conversation not found"}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async deleteConversation({ params, response, auth }: HttpContext) {
+  async deleteConversation(ctx: HttpContext) {
+    const { params, auth } = ctx
     try {
       const user = auth.user!
       const conversationId = Number(params.id)
@@ -361,14 +309,10 @@ export default class ConversationsController {
 
       logger.info('Conversation deleted', { conversationId, userId: user.id })
 
-      return response.ok({
-        message: 'Conversation deleted successfully',
-      })
+      return successResponse(ctx, { message: 'Conversation deleted successfully' })
     } catch (error) {
       logger.error('Error deleting conversation', { error, conversationId: params.id })
-      return response.notFound({
-        message: 'Conversation not found',
-      })
+      return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Conversation not found', 404)
     }
   }
 
@@ -380,7 +324,8 @@ export default class ConversationsController {
    * @requestBody {"conversationId": 1, "isTyping": true}
    * @responseBody 200 - {"success": true}
    */
-  async typing({ request, response, auth }: HttpContext) {
+  async typing(ctx: HttpContext) {
+    const { request, auth } = ctx
     const { conversationId, isTyping } = request.all()
     const user = auth.user!
 
@@ -389,6 +334,6 @@ export default class ConversationsController {
       isTyping,
     })
 
-    return response.ok({ success: true })
+    return successResponse(ctx, { success: true })
   }
 }

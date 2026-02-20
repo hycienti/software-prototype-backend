@@ -60,7 +60,6 @@ export default defineConfig({
   preloads: [
     () => import('#start/routes'),
     () => import('#start/kernel'),
-    // Socket.IO is initialized in bin/server.ts after HTTP server starts
   ],
 
   /*

@@ -6,6 +6,7 @@ export const processVoiceMessageValidator = vine.compile(
     audioData: vine.string(), // Base64 encoded audio
     audioFormat: vine.enum(['mp3', 'wav', 'm4a', 'ogg']).optional(),
     language: vine.string().maxLength(10).optional(),
+    async: vine.boolean().optional(),
   })
 )
 

@@ -47,6 +47,14 @@ class PusherService {
     const pusherEvent = event === 'typing' ? 'typing' : `stream:${event}`
     await this.trigger(channel, pusherEvent, data)
   }
+
+  async triggerVoiceResult(userId: number, data: Record<string, unknown>) {
+    await this.trigger(`user-${userId}`, 'voice:result', data)
+  }
+
+  async triggerVoiceError(userId: number, data: { jobId: string; code: string; message: string }) {
+    await this.trigger(`user-${userId}`, 'voice:error', data)
+  }
 }
 
 export default new PusherService()
