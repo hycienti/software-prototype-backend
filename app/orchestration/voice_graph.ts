@@ -7,6 +7,10 @@ import MessageRepository from '#repositories/message_repository'
 import OpenAIService from '#services/openai_service'
 import ElevenLabsService from '#services/elevenlabs_service'
 import type { VoiceGraphState } from '#orchestration/types'
+import { graphLogger, withGraphNodeLogger } from '#utils/graph_logger'
+import type { GraphLogMeta } from '#utils/graph_logger'
+
+const VOICE_GRAPH_NAME = 'voice_graph'
 
 const openaiService = new OpenAIService()
 const elevenlabsService = new ElevenLabsService()
@@ -100,7 +104,7 @@ async function generateResponse(state: State): Promise<Partial<State>> {
   const aiResponse = await openaiService.generateResponse({
     messages: chatMessages,
     temperature: 1,
-    maxTokens: 500,
+    maxTokens: 2048, // allow room for reasoning + reply (reasoning models can use most tokens on thinking)
   })
   return { voice: { aiResponse } }
 }
@@ -148,17 +152,140 @@ async function updateConversation(state: State): Promise<Partial<State>> {
   return {}
 }
 
+function getResolveConversationMeta(result: Partial<State>): GraphLogMeta {
+  const id = (result.voice as VoiceGraphState)?.conversation?.id
+  return id !== undefined ? { conversationId: id } : {}
+}
+
+function getSpeechToTextMeta(result: Partial<State>): GraphLogMeta {
+  const transcript = (result.voice as VoiceGraphState)?.transcript
+  return transcript !== undefined
+    ? { transcriptLength: transcript.length, transcriptPreview: transcript.slice(0, 80) }
+    : {}
+}
+
+function getSaveUserMessageMeta(_result: Partial<State>): GraphLogMeta {
+  return { saved: true }
+}
+
+function getLoadHistoryMeta(result: Partial<State>): GraphLogMeta {
+  const messages = (result.voice as VoiceGraphState)?.chatMessages
+  return messages !== undefined ? { messageCount: messages.length } : {}
+}
+
+function getAnalyzeSentimentMeta(result: Partial<State>): GraphLogMeta {
+  const sentiment = (result.voice as VoiceGraphState)?.sentiment
+  return sentiment
+    ? {
+        sentiment: sentiment.sentiment,
+        crisisCount: sentiment.crisisIndicators?.length ?? 0,
+        confidence: sentiment.confidence,
+      }
+    : {}
+}
+
+function getGenerateResponseMeta(result: Partial<State>): GraphLogMeta {
+  const text = (result.voice as VoiceGraphState)?.aiResponse
+  return text !== undefined ? { responseLength: text.length, preview: text.slice(0, 80) } : {}
+}
+
+function getSaveAssistantMessageMeta(result: Partial<State>): GraphLogMeta {
+  const msg = (result.voice as VoiceGraphState)?.assistantMessage
+  return msg?.id !== undefined ? { assistantMessageId: msg.id } : {}
+}
+
+function getTextToSpeechMeta(result: Partial<State>): GraphLogMeta {
+  const audio = (result.voice as VoiceGraphState)?.audioBase64
+  return audio !== undefined ? { audioBase64Length: audio.length } : {}
+}
+
+function getUpdateConversationMeta(_result: Partial<State>): GraphLogMeta {
+  return { updated: true }
+}
+
 export function createVoiceGraph() {
   const builder = new StateGraph(StateAnnotation)
-    .addNode('resolve_conversation', resolveConversation)
-    .addNode('speech_to_text', speechToText)
-    .addNode('save_user_message', saveUserMessage)
-    .addNode('load_history', loadHistory)
-    .addNode('analyze_sentiment', analyzeSentiment)
-    .addNode('generate_response', generateResponse)
-    .addNode('save_assistant_message', saveAssistantMessage)
-    .addNode('text_to_speech', textToSpeech)
-    .addNode('update_conversation', updateConversation)
+    .addNode(
+      'resolve_conversation',
+      withGraphNodeLogger(
+        VOICE_GRAPH_NAME,
+        'resolve_conversation',
+        resolveConversation,
+        getResolveConversationMeta
+      )
+    )
+    .addNode(
+      'speech_to_text',
+      withGraphNodeLogger(
+        VOICE_GRAPH_NAME,
+        'speech_to_text',
+        speechToText,
+        getSpeechToTextMeta
+      )
+    )
+    .addNode(
+      'save_user_message',
+      withGraphNodeLogger(
+        VOICE_GRAPH_NAME,
+        'save_user_message',
+        saveUserMessage,
+        getSaveUserMessageMeta
+      )
+    )
+    .addNode(
+      'load_history',
+      withGraphNodeLogger(
+        VOICE_GRAPH_NAME,
+        'load_history',
+        loadHistory,
+        getLoadHistoryMeta
+      )
+    )
+    .addNode(
+      'analyze_sentiment',
+      withGraphNodeLogger(
+        VOICE_GRAPH_NAME,
+        'analyze_sentiment',
+        analyzeSentiment,
+        getAnalyzeSentimentMeta
+      )
+    )
+    .addNode(
+      'generate_response',
+      withGraphNodeLogger(
+        VOICE_GRAPH_NAME,
+        'generate_response',
+        generateResponse,
+        getGenerateResponseMeta
+      )
+    )
+    .addNode(
+      'save_assistant_message',
+      withGraphNodeLogger(
+        VOICE_GRAPH_NAME,
+        'save_assistant_message',
+        saveAssistantMessage,
+        getSaveAssistantMessageMeta
+      )
+    )
+    .addNode(
+      'text_to_speech',
+      withGraphNodeLogger(
+        VOICE_GRAPH_NAME,
+        'text_to_speech',
+        textToSpeech,
+        getTextToSpeechMeta
+      )
+    )
+    .addNode(
+      'update_conversation',
+      withGraphNodeLogger(
+        VOICE_GRAPH_NAME,
+        'update_conversation',
+        updateConversation,
+        getUpdateConversationMeta
+      )
+    )
     .addEdge('__start__', 'resolve_conversation')
     .addEdge('resolve_conversation', 'speech_to_text')
     .addEdge('speech_to_text', 'save_user_message')
@@ -181,24 +308,44 @@ export interface VoiceGraphResult {
 }
 
 export async function runVoiceGraph(input: VoiceGraphState): Promise<VoiceGraphResult> {
-  const graph = createVoiceGraph()
-  const final = await graph.invoke({ voice: input })
-  const voice = final.voice as VoiceGraphState
-  if (voice.error) throw new Error(voice.error)
-  if (
-    !voice.conversation ||
-    !voice.transcript ||
-    !voice.assistantMessage ||
-    voice.audioBase64 === undefined ||
-    !voice.sentiment
-  ) {
-    throw new Error('Voice graph did not produce required outputs')
-  }
-  return {
-    conversation: voice.conversation,
-    transcript: voice.transcript,
-    assistantMessage: voice.assistantMessage,
-    audioBase64: voice.audioBase64,
-    sentiment: voice.sentiment,
+  graphLogger.graphStart(VOICE_GRAPH_NAME, {
+    userId: input.userId,
+    conversationId: input.conversationId,
+    audioFormat: input.audioFormat,
+  })
+  try {
+    const graph = createVoiceGraph()
+    const final = await graph.invoke({ voice: input })
+    const voice = final.voice as VoiceGraphState
+    if (voice.error) throw new Error(voice.error)
+    if (
+      !voice.conversation ||
+      !voice.transcript ||
+      !voice.assistantMessage ||
+      voice.audioBase64 === undefined ||
+      !voice.sentiment
+    ) {
+      throw new Error('Voice graph did not produce required outputs')
+    }
+    graphLogger.graphComplete(VOICE_GRAPH_NAME, {
+      conversationId: voice.conversation.id,
+      transcriptLength: voice.transcript.length,
+      assistantMessageId: voice.assistantMessage.id,
+      sentiment: voice.sentiment.sentiment,
+      hasCrisisIndicators: (voice.sentiment.crisisIndicators?.length ?? 0) > 0,
+    })
+    return {
+      conversation: voice.conversation,
+      transcript: voice.transcript,
+      assistantMessage: voice.assistantMessage,
+      audioBase64: voice.audioBase64,
+      sentiment: voice.sentiment,
+    }
+  } catch (error) {
+    graphLogger.graphError(VOICE_GRAPH_NAME, error, {
+      userId: input.userId,
+      conversationId: input.conversationId,
+    })
+    throw error
   }
 }

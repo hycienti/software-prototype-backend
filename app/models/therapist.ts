@@ -19,6 +19,21 @@ export default class Therapist extends BaseModel {
   declare professionalTitle: string | null
 
   @column()
+  declare about: string | null
+
+  @column({ serializeAs: 'profilePhotoUrl' })
+  declare profilePhotoUrl: string | null
+
+  @column()
+  declare rateCents: number | null
+
+  @column()
+  declare education: string | null
+
+  @column()
+  declare yearsOfExperience: number | null
+
+  @column()
   declare licenseUrl: string | null
 
   @column()

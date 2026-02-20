@@ -11,7 +11,7 @@ const achievementRepository = new AchievementRepository()
 
 export default class GratitudeService {
   /**
-   * Create a gratitude entry (checks duplicate by date, then creates and updates achievements/cache).
+   * Create a gratitude entry (multiple entries per day allowed). Updates achievements/cache.
    */
   async create(
     userId: number,
@@ -21,16 +21,10 @@ export default class GratitudeService {
       entryDate?: Date
       metadata?: Record<string, unknown> | null
     }
-  ): Promise<{ gratitude: Gratitude; existing?: Gratitude }> {
+  ): Promise<{ gratitude: Gratitude }> {
     const entryDate = payload.entryDate
       ? DateTime.fromJSDate(payload.entryDate)
       : DateTime.now()
-    const entryDateIso = entryDate.startOf('day').toISODate()!
-
-    const existingEntry = await gratitudeRepository.findByUserIdAndEntryDate(userId, entryDateIso)
-    if (existingEntry) {
-      return { gratitude: existingEntry, existing: existingEntry }
-    }
 
     const gratitude = await gratitudeRepository.create({
       userId,

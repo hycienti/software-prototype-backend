@@ -44,17 +44,21 @@ export default class SessionRepository {
     therapistId: number,
     options: { page: number; limit: number; status?: string }
   ): Promise<{ data: Session[]; total: number }> {
-    const query = Session.query()
+    const baseQuery = Session.query().where('therapist_id', therapistId)
+    if (options.status) {
+      baseQuery.where('status', options.status)
+    }
+    const total = await baseQuery.clone().count('* as total').first()
+    const totalCount = Number(total?.$extras?.total ?? 0)
+    const dataQuery = Session.query()
       .where('therapist_id', therapistId)
       .preload('user')
       .preload('therapist')
       .orderBy('scheduled_at', 'desc')
     if (options.status) {
-      query.where('status', options.status)
+      dataQuery.where('status', options.status)
     }
-    const total = await query.clone().count('* as total').first()
-    const totalCount = Number(total?.$extras?.total ?? 0)
-    const data = await query
+    const data = await dataQuery
       .offset((options.page - 1) * options.limit)
       .limit(options.limit)
     return { data, total: totalCount }
@@ -64,17 +68,21 @@ export default class SessionRepository {
     userId: number,
     options: { page: number; limit: number; status?: string }
   ): Promise<{ data: Session[]; total: number }> {
-    const query = Session.query()
+    const baseQuery = Session.query().where('user_id', userId)
+    if (options.status) {
+      baseQuery.where('status', options.status)
+    }
+    const total = await baseQuery.clone().count('* as total').first()
+    const totalCount = Number(total?.$extras?.total ?? 0)
+    const dataQuery = Session.query()
       .where('user_id', userId)
       .preload('user')
       .preload('therapist')
       .orderBy('scheduled_at', 'desc')
     if (options.status) {
-      query.where('status', options.status)
+      dataQuery.where('status', options.status)
     }
-    const total = await query.clone().count('* as total').first()
-    const totalCount = Number(total?.$extras?.total ?? 0)
-    const data = await query
+    const data = await dataQuery
       .offset((options.page - 1) * options.limit)
       .limit(options.limit)
     return { data, total: totalCount }

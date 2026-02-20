@@ -13,6 +13,11 @@ function serializeTherapistForUser(t: Therapist) {
     professionalTitle: t.professionalTitle,
     specialties: t.specialties ?? [],
     acceptingNewClients: t.acceptingNewClients ?? true,
+    about: t.about ?? null,
+    profilePhotoUrl: t.profilePhotoUrl ?? null,
+    rateCents: t.rateCents ?? null,
+    education: t.education ?? null,
+    yearsOfExperience: t.yearsOfExperience ?? null,
   }
 }
 

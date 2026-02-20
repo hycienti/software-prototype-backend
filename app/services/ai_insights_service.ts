@@ -39,17 +39,11 @@ export interface AIInsightsResponse {
 }
 
 export default class AIInsightsService {
-  private client: OpenAI
+  private client: OpenAI | null
 
   constructor() {
     const apiKey = env.get('OPENAI_API_KEY')
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY environment variable is required')
-    }
-
-    this.client = new OpenAI({
-      apiKey,
-    })
+    this.client = apiKey ? new OpenAI({ apiKey }) : null
   }
 
   /**
@@ -60,6 +54,11 @@ export default class AIInsightsService {
     insightsData: GratitudeInsightsData,
     forceRegenerate: boolean = false
   ): Promise<AIInsightsResponse> {
+    if (!env.get('OPENAI_API_KEY') || !this.client) {
+      logger.warn('OPENAI_API_KEY missing, returning fallback gratitude insights', { userId })
+      return this.getFallbackGratitudeInsights(insightsData)
+    }
+
     try {
       // Check cache first unless forcing regeneration
       if (!forceRegenerate) {
@@ -79,9 +78,15 @@ export default class AIInsightsService {
 
       return insights
     } catch (error) {
-      logger.error('Error getting gratitude insights', { userId, error })
-      // Return fallback insights if AI generation fails
-      return this.getFallbackGratitudeInsights(insightsData)
+      const message = error instanceof Error ? error.message : String(error)
+      const code = error && typeof error === 'object' && 'code' in error ? (error as { code?: string }).code : undefined
+      logger.warn('AI gratitude insights failed, returning fallback', { userId, message, code, error })
+      try {
+        return this.getFallbackGratitudeInsights(insightsData)
+      } catch (fallbackError) {
+        logger.warn('Fallback gratitude insights failed', { userId, error: fallbackError })
+        throw fallbackError
+      }
     }
   }
 
@@ -93,6 +98,11 @@ export default class AIInsightsService {
     insightsData: MoodInsightsData,
     forceRegenerate: boolean = false
   ): Promise<AIInsightsResponse> {
+    if (!env.get('OPENAI_API_KEY') || !this.client) {
+      logger.warn('OPENAI_API_KEY missing, returning fallback mood insights', { userId })
+      return this.getFallbackMoodInsights(insightsData)
+    }
+
     try {
       // Check cache first unless forcing regeneration
       if (!forceRegenerate) {
@@ -112,9 +122,15 @@ export default class AIInsightsService {
 
       return insights
     } catch (error) {
-      logger.error('Error getting mood insights', { userId, error })
-      // Return fallback insights if AI generation fails
-      return this.getFallbackMoodInsights(insightsData)
+      const message = error instanceof Error ? error.message : String(error)
+      const code = error && typeof error === 'object' && 'code' in error ? (error as { code?: string }).code : undefined
+      logger.warn('AI mood insights failed, returning fallback', { userId, message, code, error })
+      try {
+        return this.getFallbackMoodInsights(insightsData)
+      } catch (fallbackError) {
+        logger.warn('Fallback mood insights failed', { userId, error: fallbackError })
+        throw fallbackError
+      }
     }
   }
 
@@ -124,19 +140,20 @@ export default class AIInsightsService {
   private async generateGratitudeInsights(
     data: GratitudeInsightsData
   ): Promise<AIInsightsResponse> {
-    // Format recent entries
-    const recentEntriesText = data.recentEntries
+    const recentEntries = Array.isArray(data.recentEntries) ? data.recentEntries : []
+    const recentEntriesText = recentEntries
       .map((entry, idx) => {
-        const entryText = entry.entries.map((e, i) => `${i + 1}. ${e}`).join('\n')
-        return `Entry ${idx + 1} (${entry.date}):\n${entryText}`
+        const entries = Array.isArray(entry.entries) ? entry.entries : []
+        const entryText = entries.map((e, i) => `${i + 1}. ${e}`).join('\n')
+        return `Entry ${idx + 1} (${entry.date ?? 'unknown'}):\n${entryText}`
       })
       .join('\n\n')
 
-    // Format themes
-    const themesText = data.mostCommonThemes.map((t) => `${t.theme} (${t.count} times)`).join(', ')
+    const mostCommonThemes = Array.isArray(data.mostCommonThemes) ? data.mostCommonThemes : []
+    const themesText = mostCommonThemes.map((t) => `${t.theme} (${t.count} times)`).join(', ')
 
-    // Format monthly trend
-    const trendText = data.monthlyTrend.map((t) => `${t.month}: ${t.count} entries`).join(', ')
+    const monthlyTrend = Array.isArray(data.monthlyTrend) ? data.monthlyTrend : []
+    const trendText = monthlyTrend.map((t) => `${t.month}: ${t.count} entries`).join(', ')
 
     // Build prompt
     const prompt = GRATITUDE_INSIGHTS_PROMPT.replace('{totalEntries}', String(data.totalEntries))
@@ -147,6 +164,10 @@ export default class AIInsightsService {
       .replace('{mostCommonThemes}', themesText || 'None yet')
       .replace('{monthlyTrend}', trendText || 'No trend data')
       .replace('{recentEntries}', recentEntriesText || 'No recent entries')
+
+    if (!this.client) {
+      throw new Error('OpenAI client not configured')
+    }
 
     const completion = await this.client.chat.completions.create({
       model: env.get('OPENAI_MODEL', 'gpt-4o-mini'),
@@ -171,7 +192,14 @@ export default class AIInsightsService {
       throw new Error('OpenAI returned empty response')
     }
 
-    const insights = JSON.parse(content) as AIInsightsResponse
+    let insights: AIInsightsResponse
+    try {
+      insights = JSON.parse(content) as AIInsightsResponse
+    } catch (parseError) {
+      const snippet = content.length > 200 ? `${content.slice(0, 200)}...` : content
+      logger.warn('Failed to parse gratitude insights JSON', { snippet })
+      throw new Error('Invalid JSON in OpenAI gratitude insights response')
+    }
 
     // Validate response structure
     if (!insights.weeklySummary || !Array.isArray(insights.keyPatterns)) {
@@ -217,6 +245,10 @@ export default class AIInsightsService {
       .replace('{monthlyTrend}', 'See weekly trend')
       .replace('{patterns}', patternsText || 'No patterns detected yet')
       .replace('{recentEntries}', recentEntriesText || 'No recent entries')
+
+    if (!this.client) {
+      throw new Error('OpenAI client not configured')
+    }
 
     const completion = await this.client.chat.completions.create({
       model: env.get('OPENAI_MODEL', 'gpt-4o-mini'),
@@ -311,14 +343,15 @@ export default class AIInsightsService {
    * Fallback insights if AI generation fails
    */
   private getFallbackGratitudeInsights(data: GratitudeInsightsData): AIInsightsResponse {
+    const mostCommonThemes = Array.isArray(data.mostCommonThemes) ? data.mostCommonThemes : []
     return {
       weeklySummary: `You have been maintaining your gratitude practice with ${data.totalEntries} total entries. Keep up the great work!`,
       keyPatterns: [
         data.currentStreak > 0
           ? `You are on a ${data.currentStreak}-day streak - consistency is key!`
           : 'Starting your gratitude journey is the first step.',
-        data.mostCommonThemes.length > 0
-          ? `You often reflect on: ${data.mostCommonThemes[0]?.theme || 'various themes'}`
+        mostCommonThemes.length > 0
+          ? `You often reflect on: ${mostCommonThemes[0]?.theme || 'various themes'}`
           : 'Explore different aspects of your life to write about.',
       ],
       growthObservations: [

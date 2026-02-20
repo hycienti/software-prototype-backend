@@ -15,7 +15,7 @@
     "docker:migrate": "docker-compose -f docker-compose.dev.yml exec api node ace migration:run",
     "docker:down": "docker-compose -f docker-compose.dev.yml down",
     "docker:build:clear": "docker-compose -f docker-compose.dev.yml build --no-cache",
-    "docker:up:detached": "docker-compose -f docker-compose.dev.yml up -d",
+    "docker:up:detached": "docker-compose -f docker-compose.dev.yml up -d && sleep 18 && docker-compose -f docker-compose.dev.yml exec -T api node ace migration:run && docker-compose -f docker-compose.dev.yml exec -T api node ace seed:therapists",
     "docker:up": " docker-compose -f docker-compose.dev.yml up -d",
     "docker:rebuild":"docker-compose -f docker-compose.dev.yml up -d --build"
   },

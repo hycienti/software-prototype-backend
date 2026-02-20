@@ -181,7 +181,13 @@ export default class MoodController {
       return successResponse(ctx, insights)
     } catch (error) {
       logger.error('Error fetching mood insights', { error })
-      throw error
+      try {
+        const user = ctx.auth.user!
+        const baseInsights = await moodService.getMoodInsights(user.id, false)
+        return successResponse(ctx, baseInsights)
+      } catch (fallbackError) {
+        throw error
+      }
     }
   }
 }

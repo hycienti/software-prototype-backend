@@ -74,5 +74,10 @@ export const therapistUpdateProfileValidator = vine.compile(
     professionalTitle: vine.string().trim().maxLength(255).optional(),
     licenseUrl: vine.string().trim().url().optional().nullable(),
     identityUrl: vine.string().trim().url().optional().nullable(),
+    about: vine.string().trim().maxLength(10000).optional().nullable(),
+    profilePhotoUrl: vine.string().trim().url().optional().nullable(),
+    rateCents: vine.number().min(0).optional().nullable(),
+    education: vine.string().trim().maxLength(5000).optional().nullable(),
+    yearsOfExperience: vine.number().min(0).optional().nullable(),
   })
 )

@@ -34,8 +34,17 @@ export default class ElevenLabsService {
    */
   async textToSpeech(options: TextToSpeechOptions): Promise<Buffer> {
     try {
-      const voiceId = options.voiceId || env.get('ELEVENLABS_VOICE_ID', '21m00Tcm4TlvDq8ikWAM') // Default warm voice
-      const modelId = options.modelId || env.get('ELEVENLABS_MODEL_ID', 'eleven_turbo_v2_5')
+      const rawVoiceId = options.voiceId ?? env.get('ELEVENLABS_VOICE_ID')
+      const voiceId =
+        rawVoiceId && rawVoiceId !== 'dummy' ? rawVoiceId : '21m00Tcm4TlvDq8ikWAM'
+      const rawModelId = options.modelId ?? env.get('ELEVENLABS_MODEL_ID')
+      // STT models (scribe_*) are invalid for TTS; use default TTS model when env is unset or STT
+      const modelId =
+        rawModelId &&
+        rawModelId !== 'dummy' &&
+        !rawModelId.startsWith('scribe')
+          ? rawModelId
+          : 'eleven_turbo_v2_5'
 
       const audio = await this.client.textToSpeech.convert(voiceId, {
         text: options.text,
@@ -50,13 +59,16 @@ export default class ElevenLabsService {
 
       // Convert stream to buffer
       const chunks: Uint8Array[] = []
+      logger.info('TTS audio', { audio })
       for await (const chunk of audio) {
         chunks.push(chunk)
       }
 
       return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)))
     } catch (error) {
-      logger.error('ElevenLabs TTS error', { error })
+      const message = error instanceof Error ? error.message : String(error)
+      const stack = error instanceof Error ? error.stack : undefined
+      logger.error(`ElevenLabs TTS error: ${message}`, { stack })
       throw error
     }
   }
@@ -66,7 +78,8 @@ export default class ElevenLabsService {
    */
   async speechToText(options: SpeechToTextOptions): Promise<string> {
     try {
-      const modelId = env.get('ELEVENLABS_STT_MODEL_ID', 'scribe_v1')
+      const raw = env.get('ELEVENLABS_STT_MODEL_ID', 'scribe_v1')
+      const modelId = raw && raw !== 'dummy' ? raw : 'scribe_v1'
 
       const response = await this.client.speechToText.convert({
         file: options.audioData,
@@ -88,6 +101,7 @@ export default class ElevenLabsService {
 
       // Fallback: try to extract text from any response structure
       const responseAny = response as any
+      logger.info('STT response', { responseAny })
       if (responseAny.text) {
         return responseAny.text
       }
@@ -95,7 +109,9 @@ export default class ElevenLabsService {
       logger.error('Unexpected STT response format', { response })
       throw new Error('Failed to extract text from STT response')
     } catch (error) {
-      logger.error('ElevenLabs STT error', { error })
+      const message = error instanceof Error ? error.message : String(error)
+      const stack = error instanceof Error ? error.stack : undefined
+      logger.error(`ElevenLabs STT error: ${message}`, { stack })
       throw error
     }
   }
@@ -106,8 +122,12 @@ export default class ElevenLabsService {
   async getVoices(): Promise<any[]> {
     try {
       const voices = await this.client.voices.getAll()
+      logger.info('Voices', { voices })
       return voices.voices || []
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const stack = error instanceof Error ? error.stack : undefined
+      logger.error(`Error fetching voices: ${message}`, { stack })
       logger.error('Error fetching voices', { error })
       return []
     }

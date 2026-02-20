@@ -14,7 +14,7 @@ export default class TherapistRepository {
     limit: number
     search?: string
   }): Promise<{ data: Therapist[]; total: number }> {
-    const q = Therapist.query().orderBy('fullName', 'asc')
+    const q = Therapist.query()
     if (options.search?.trim()) {
       const term = `%${options.search.trim()}%`
       q.where((builder) => {
@@ -26,6 +26,7 @@ export default class TherapistRepository {
     const total = await q.clone().count('* as total').first()
     const totalCount = Number(total?.$extras?.total ?? 0)
     const data = await q
+      .orderBy('fullName', 'asc')
       .offset((options.page - 1) * options.limit)
       .limit(options.limit)
     return { data, total: totalCount }
@@ -39,7 +40,7 @@ export default class TherapistRepository {
     lastLoginAt?: DateTime | null
     [key: string]: any
   }): Promise<Therapist> {
-    return Therapist.create(data)
+    return Therapist.updateOrCreate({ email: data.email }, data)
   }
 
   async update(therapist: Therapist, payload: Partial<Therapist>): Promise<Therapist> {

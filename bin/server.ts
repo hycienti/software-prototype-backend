@@ -9,6 +9,10 @@
 |
 */
 
+import { EventEmitter, setMaxListeners } from 'node:events'
+EventEmitter.defaultMaxListeners = 20
+setMaxListeners(20, process)
+
 import 'reflect-metadata'
 import { Ignitor, prettyPrintError } from '@adonisjs/core'
 
