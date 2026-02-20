@@ -170,6 +170,7 @@ router
     router
       .group(() => {
         router.post('/', [GratitudeController, 'create'])
+        router.post('/upload-photo', [GratitudeController, 'uploadPhoto'])
         router.get('/', [GratitudeController, 'index'])
         router.get('/streak', [GratitudeController, 'streak'])
         router.get('/insights', [GratitudeController, 'insights'])

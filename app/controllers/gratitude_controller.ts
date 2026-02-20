@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import drive from '@adonisjs/drive/services/main'
 import type Gratitude from '#models/gratitude'
 import GratitudeService from '#services/gratitude_service'
 import QuotesService from '#services/quotes_service'
@@ -9,6 +10,7 @@ import {
 } from '#validators/gratitude_validator'
 import logger from '@adonisjs/core/services/logger'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
+import { randomUUID } from 'node:crypto'
 
 const gratitudeService = new GratitudeService()
 const quotesService = new QuotesService()
@@ -47,16 +49,6 @@ export default class GratitudeController {
         metadata: payload.metadata,
       })
 
-      if (result.existing) {
-        return errorResponse(
-          ctx,
-          ErrorCodes.CONFLICT,
-          'A gratitude entry already exists for this date',
-          409,
-          { gratitude: serializeGratitude(result.gratitude) }
-        )
-      }
-
       logger.info('Gratitude entry created', {
         userId: user.id,
         gratitudeId: result.gratitude.id,
@@ -67,6 +59,60 @@ export default class GratitudeController {
     } catch (error) {
       logger.error('Error creating gratitude entry', { error })
       throw error
+    }
+  }
+
+  /**
+   * @uploadPhoto
+   * @summary Upload a photo for gratitude entry
+   * @description Multipart upload; returns URL to use as photoUrl when creating a gratitude entry.
+   * @responseBody 200 - {"url": "https://..."}
+   * @responseBody 400 - Invalid or missing file
+   * @responseBody 401 - Unauthorized
+   */
+  async uploadPhoto(ctx: HttpContext) {
+    const user = ctx.auth.user!
+    const request = ctx.request
+
+    const file = request.file('file', {
+      size: '5mb',
+      extnames: ['jpg', 'jpeg', 'png'],
+    })
+
+    if (!file || !file.isValid) {
+      const message =
+        file?.errors?.[0]?.message ??
+        'No file provided or invalid file. Allowed: JPG, JPEG, PNG; max 5MB.'
+      return errorResponse(ctx, ErrorCodes.BAD_REQUEST, message, 400)
+    }
+
+    const ext = file.extname || (file.type && file.type.split('/')[1]) || 'jpg'
+    const key = `users/${user.id}/gratitude/${randomUUID()}.${ext}`
+
+    try {
+      const disk = drive.use()
+      await disk.copyFromFs(file.tmpPath!, key, {
+        visibility: 'public',
+        contentType: file.type ?? 'image/jpeg',
+      })
+
+      let url: string
+      try {
+        url = await disk.getUrl(key)
+      } catch {
+        url = await disk.getSignedUrl(key, { expiresIn: '1y' })
+      }
+
+      logger.info('Gratitude photo uploaded', { userId: user.id, key })
+      return successResponse(ctx, { url })
+    } catch (err) {
+      logger.error('Gratitude photo upload failed', { userId: user.id, error: err })
+      return errorResponse(
+        ctx,
+        ErrorCodes.INTERNAL_SERVER_ERROR,
+        err instanceof Error ? err.message : 'Upload failed',
+        500
+      )
     }
   }
 
