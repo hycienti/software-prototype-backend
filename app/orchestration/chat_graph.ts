@@ -89,7 +89,7 @@ async function generateResponse(state: State): Promise<Partial<State>> {
     try {
       for await (const chunk of openaiService.generateStreamingResponse({
         messages: chatMessages,
-        temperature: 0.7,
+        temperature: 1,
         maxTokens: 1000,
       })) {
         aiResponse += chunk
@@ -106,7 +106,7 @@ async function generateResponse(state: State): Promise<Partial<State>> {
     await pusherService.stream(conversation.id, 'typing', { isTyping: true })
     aiResponse = await openaiService.generateResponse({
       messages: chatMessages,
-      temperature: 0.7,
+      temperature: 1,
       maxTokens: 1000,
     })
     await pusherService.stream(conversation.id, 'typing', { isTyping: false })
@@ -173,7 +173,7 @@ async function generateTitle(state: State): Promise<Partial<State>> {
     const titlePrompt = getConversationTitlePrompt(message)
     const titleResponse = await openaiService.generateResponse({
       messages: [{ role: 'user', content: titlePrompt }],
-      temperature: 0.5,
+      temperature: 1,
       maxTokens: 50,
     })
     await conversationRepository.update(conversation, {

@@ -3,6 +3,20 @@ import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
 import { THERAPY_SYSTEM_PROMPT, SENTIMENT_ANALYSIS_PROMPT } from '../prompts/index.js'
 
+const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
+
+/** Valid OpenAI model IDs start with gpt- (lowercase). Use default if env value is missing or invalid. */
+function getOpenAIModel(): string {
+  const configured = env.get('OPENAI_MODEL', '').trim()
+  if (configured && configured.toLowerCase().startsWith('gpt-')) {
+    return configured
+  }
+  if (configured) {
+    logger.warn('Invalid OPENAI_MODEL "%s", using default %s', configured, DEFAULT_OPENAI_MODEL)
+  }
+  return DEFAULT_OPENAI_MODEL
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
@@ -17,6 +31,7 @@ export interface ChatCompletionOptions {
 
 export default class OpenAIService {
   private client: OpenAI
+  private model: string
 
   constructor() {
     const apiKey = env.get('OPENAI_API_KEY')
@@ -27,6 +42,7 @@ export default class OpenAIService {
     this.client = new OpenAI({
       apiKey,
     })
+    this.model = getOpenAIModel()
   }
 
   /**
@@ -46,10 +62,10 @@ export default class OpenAIService {
       ]
 
       const completion = await this.client.chat.completions.create({
-        model: env.get('OPENAI_MODEL', 'gpt-4o-mini'),
+        model: this.model,
         messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens ?? 1000,
+        temperature: options.temperature ?? 1,
+        max_completion_tokens: options.maxTokens ?? 1000,
         stream: false, // Explicitly set to false for non-streaming response
       })
 
@@ -86,10 +102,10 @@ export default class OpenAIService {
       ]
 
       const stream = await this.client.chat.completions.create({
-        model: env.get('OPENAI_MODEL', 'gpt-4o-mini'),
+        model: this.model,
         messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens ?? 1000,
+        temperature: options.temperature ?? 1,
+        max_completion_tokens: options.maxTokens ?? 1000,
         stream: true,
       })
 
@@ -115,7 +131,7 @@ export default class OpenAIService {
   }> {
     try {
       const completion = await this.client.chat.completions.create({
-        model: env.get('OPENAI_MODEL', 'gpt-4o-mini'),
+        model: this.model,
         messages: [
           {
             role: 'system',
@@ -127,8 +143,8 @@ export default class OpenAIService {
           },
         ],
         response_format: { type: 'json_object' },
-        temperature: 0.3,
-        max_tokens: 200,
+        temperature: 1,
+        max_completion_tokens: 200,
       })
 
       const result = JSON.parse(completion.choices[0]?.message?.content || '{}')
