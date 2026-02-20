@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import drive from '@adonisjs/drive/services/main'
 import TherapistService from '#services/therapist_service'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
+import { getPublicFileUrl } from '#utils/drive_helper'
 
 const therapistService = new TherapistService()
 
@@ -55,10 +56,15 @@ export default class TherapistDocumentsController {
       })
 
       let url: string
-      try {
-        url = await disk.getUrl(key)
-      } catch {
-        url = await disk.getSignedUrl(key, { expiresIn: '7d' })
+      const publicUrl = getPublicFileUrl(key)
+      if (publicUrl) {
+        url = publicUrl
+      } else {
+        try {
+          url = await disk.getUrl(key)
+        } catch {
+          url = await disk.getSignedUrl(key, { expiresIn: '7d' })
+        }
       }
 
       const payload = typeInput === 'license' ? { licenseUrl: url } : { identityUrl: url }

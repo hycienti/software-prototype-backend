@@ -10,6 +10,7 @@ import {
 } from '#validators/gratitude_validator'
 import logger from '@adonisjs/core/services/logger'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
+import { getPublicFileUrl } from '#utils/drive_helper'
 import { randomUUID } from 'node:crypto'
 
 const gratitudeService = new GratitudeService()
@@ -98,10 +99,15 @@ export default class GratitudeController {
       })
 
       let url: string
-      try {
-        url = await disk.getUrl(key)
-      } catch {
-        url = await disk.getSignedUrl(key, { expiresIn: '1y' })
+      const publicUrl = getPublicFileUrl(key)
+      if (publicUrl) {
+        url = publicUrl
+      } else {
+        try {
+          url = await disk.getUrl(key)
+        } catch {
+          url = await disk.getSignedUrl(key, { expiresIn: '1y' })
+        }
       }
 
       logger.info('Gratitude photo uploaded', { userId: user.id, key })

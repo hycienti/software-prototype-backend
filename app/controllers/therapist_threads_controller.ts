@@ -5,6 +5,7 @@ import TherapistThreadMessage from '#models/therapist_thread_message'
 import Therapist from '#models/therapist'
 import { sendTherapistThreadMessageValidator } from '#validators/therapist_thread_validator'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
+import { getPublicFileUrl } from '#utils/drive_helper'
 
 /** Serialize therapist for thread list/detail (safe fields only) */
 function serializeTherapist(t: Therapist) {
@@ -181,7 +182,10 @@ export default class TherapistThreadsController {
     }
     const file = ctx.request.file('file', {
       size: '15mb',
-      extnames: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'mp3', 'm4a', 'wav', 'webm', 'mp4'],
+      extnames: [
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'mp3', 'm4a', 'wav', 'webm', 'mp4',
+        'JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'PDF', 'MP3', 'M4A', 'WAV', 'WEBM', 'MP4',
+      ],
     })
     if (!file || !file.isValid) {
       const message =
@@ -189,8 +193,13 @@ export default class TherapistThreadsController {
         'No file provided or invalid. Allowed: images, PDF, audio (mp3, m4a, wav, webm), video (mp4); max 15MB.'
       return errorResponse(ctx, ErrorCodes.BAD_REQUEST, message, 400)
     }
-    const ext = file.extname || (file.type && file.type.split('/')[1]) || 'bin'
-    const key = `chat/${user.id}/${thread.id}/${Date.now()}-${file.clientName || 'file'}.${ext}`.replace(/\s+/g, '-')
+    const ext = (file.extname || (file.type && file.type.split('/')[1]) || 'bin').toLowerCase()
+    const baseName = (() => {
+      const name = file.clientName || 'file'
+      const lastDot = name.lastIndexOf('.')
+      return lastDot > 0 ? name.slice(0, lastDot) : name
+    })()
+    const key = `chat/${user.id}/${thread.id}/${Date.now()}-${baseName}.${ext}`.replace(/\s+/g, '-')
     try {
       const disk = drive.use()
       await disk.copyFromFs(file.tmpPath!, key, {
@@ -198,10 +207,15 @@ export default class TherapistThreadsController {
         contentType: file.type ?? 'application/octet-stream',
       })
       let url: string
-      try {
-        url = await disk.getUrl(key)
-      } catch {
-        url = await disk.getSignedUrl(key, { expiresIn: '365d' })
+      const publicUrl = getPublicFileUrl(key)
+      if (publicUrl) {
+        url = publicUrl
+      } else {
+        try {
+          url = await disk.getUrl(key)
+        } catch {
+          url = await disk.getSignedUrl(key, { expiresIn: '365d' })
+        }
       }
       return successResponse(ctx, { url })
     } catch (err) {
