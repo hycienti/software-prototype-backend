@@ -218,6 +218,7 @@ router
     // Therapist–user messaging (user auth)
     router
       .group(() => {
+        router.post('/upload', [TherapistThreadsController, 'upload'])
         router.get('/', [TherapistThreadsController, 'index'])
         router.get('/:id', [TherapistThreadsController, 'show'])
         router.post('/:id/messages', [TherapistThreadsController, 'createMessage'])

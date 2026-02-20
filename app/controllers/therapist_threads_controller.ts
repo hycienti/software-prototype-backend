@@ -1,9 +1,11 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import drive from '@adonisjs/drive/services/main'
 import TherapistThread from '#models/therapist_thread'
 import TherapistThreadMessage from '#models/therapist_thread_message'
 import Therapist from '#models/therapist'
 import { sendTherapistThreadMessageValidator } from '#validators/therapist_thread_validator'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
+import { getPublicFileUrl } from '#utils/drive_helper'
 
 /** Serialize therapist for thread list/detail (safe fields only) */
 function serializeTherapist(t: Therapist) {
@@ -19,7 +21,9 @@ function serializeMessage(m: TherapistThreadMessage) {
     id: m.id,
     threadId: m.threadId,
     senderType: m.senderType,
-    body: m.body,
+    body: m.body ?? '',
+    voiceUrl: m.voiceUrl ?? null,
+    attachmentUrls: m.attachmentUrls ?? null,
     createdAt: m.createdAt.toISO(),
   }
 }
@@ -82,12 +86,16 @@ export default class TherapistThreadsController {
     }
     const page = Math.max(1, Number(ctx.request.input('page', 1)))
     const limit = Math.min(50, Math.max(1, Number(ctx.request.input('limit', 20))))
-    const messagesQuery = TherapistThreadMessage.query()
+    const total = await TherapistThreadMessage.query()
+      .where('thread_id', thread.id)
+      .count('* as total')
+      .first()
+    const totalCount = Number(total?.$extras?.total ?? 0)
+    const messages = await TherapistThreadMessage.query()
       .where('thread_id', thread.id)
       .orderBy('created_at', 'desc')
-    const total = await messagesQuery.clone().count('* as total').first()
-    const totalCount = Number(total?.$extras?.total ?? 0)
-    const messages = await messagesQuery.offset((page - 1) * limit).limit(limit)
+      .offset((page - 1) * limit)
+      .limit(limit)
     return successResponse(ctx, {
       thread: {
         id: thread.id,
@@ -127,12 +135,16 @@ export default class TherapistThreadsController {
 
     const page = Math.max(1, Number(ctx.request.input('page', 1)))
     const limit = Math.min(50, Math.max(1, Number(ctx.request.input('limit', 20))))
-    const messagesQuery = TherapistThreadMessage.query()
+    const total = await TherapistThreadMessage.query()
+      .where('thread_id', thread.id)
+      .count('* as total')
+      .first()
+    const totalCount = Number(total?.$extras?.total ?? 0)
+    const messages = await TherapistThreadMessage.query()
       .where('thread_id', thread.id)
       .orderBy('created_at', 'desc')
-    const total = await messagesQuery.clone().count('* as total').first()
-    const totalCount = Number(total?.$extras?.total ?? 0)
-    const messages = await messagesQuery.offset((page - 1) * limit).limit(limit)
+      .offset((page - 1) * limit)
+      .limit(limit)
 
     return successResponse(ctx, {
       thread: {
@@ -146,6 +158,74 @@ export default class TherapistThreadsController {
       messages: messages.map(serializeMessage).reverse(),
       meta: { page, limit, total: totalCount },
     })
+  }
+
+  /**
+   * POST /therapist-threads/upload — upload file for chat (voice or attachment). Returns { url }.
+   * Multipart: file (required), threadId (required). User must own the thread.
+   */
+  async upload(ctx: HttpContext) {
+    const user = ctx.auth.use('api').user
+    if (!user) {
+      return errorResponse(ctx, ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+    const threadId = Number(ctx.request.body().threadId ?? ctx.request.input('threadId'))
+    if (!threadId || Number.isNaN(threadId)) {
+      return errorResponse(ctx, ErrorCodes.BAD_REQUEST, 'threadId is required', 400)
+    }
+    const thread = await TherapistThread.query()
+      .where('id', threadId)
+      .where('user_id', user.id)
+      .first()
+    if (!thread) {
+      return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Thread not found', 404)
+    }
+    const file = ctx.request.file('file', {
+      size: '15mb',
+      extnames: [
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'mp3', 'm4a', 'wav', 'webm', 'mp4',
+        'JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'PDF', 'MP3', 'M4A', 'WAV', 'WEBM', 'MP4',
+      ],
+    })
+    if (!file || !file.isValid) {
+      const message =
+        file?.errors?.[0]?.message ??
+        'No file provided or invalid. Allowed: images, PDF, audio (mp3, m4a, wav, webm), video (mp4); max 15MB.'
+      return errorResponse(ctx, ErrorCodes.BAD_REQUEST, message, 400)
+    }
+    const ext = (file.extname || (file.type && file.type.split('/')[1]) || 'bin').toLowerCase()
+    const baseName = (() => {
+      const name = file.clientName || 'file'
+      const lastDot = name.lastIndexOf('.')
+      return lastDot > 0 ? name.slice(0, lastDot) : name
+    })()
+    const key = `chat/${user.id}/${thread.id}/${Date.now()}-${baseName}.${ext}`.replace(/\s+/g, '-')
+    try {
+      const disk = drive.use()
+      await disk.copyFromFs(file.tmpPath!, key, {
+        visibility: 'public',
+        contentType: file.type ?? 'application/octet-stream',
+      })
+      let url: string
+      const publicUrl = getPublicFileUrl(key)
+      if (publicUrl) {
+        url = publicUrl
+      } else {
+        try {
+          url = await disk.getUrl(key)
+        } catch {
+          url = await disk.getSignedUrl(key, { expiresIn: '365d' })
+        }
+      }
+      return successResponse(ctx, { url })
+    } catch (err) {
+      return errorResponse(
+        ctx,
+        ErrorCodes.INTERNAL_SERVER_ERROR,
+        err instanceof Error ? err.message : 'Upload failed',
+        500
+      )
+    }
   }
 
   /**
@@ -171,10 +251,26 @@ export default class TherapistThreadsController {
     }
 
     const payload = await sendTherapistThreadMessageValidator.validate(ctx.request.all())
+    const hasBody = typeof payload.body === 'string' && payload.body.trim().length > 0
+    const hasVoice = typeof payload.voiceUrl === 'string' && payload.voiceUrl.trim().length > 0
+    const hasAttachments =
+      Array.isArray(payload.attachmentUrls) &&
+      payload.attachmentUrls.length > 0 &&
+      payload.attachmentUrls.some((u: string) => u && String(u).trim())
+    if (!hasBody && !hasVoice && !hasAttachments) {
+      return errorResponse(
+        ctx,
+        ErrorCodes.BAD_REQUEST,
+        'At least one of body, voiceUrl, or attachmentUrls is required',
+        400
+      )
+    }
     const message = await TherapistThreadMessage.create({
       threadId: thread.id,
       senderType: 'user',
-      body: payload.body,
+      body: payload.body?.trim() ?? '',
+      voiceUrl: payload.voiceUrl?.trim() || null,
+      attachmentUrls: payload.attachmentUrls?.length ? payload.attachmentUrls : null,
     })
 
     return ctx.response.status(201).json({
