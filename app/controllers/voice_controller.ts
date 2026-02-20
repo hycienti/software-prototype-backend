@@ -70,6 +70,7 @@ export default class VoiceController {
         processingTimeMs: processingTime,
         sentiment: result.sentiment.sentiment,
         hasCrisisIndicators: result.sentiment.crisisIndicators.length > 0,
+        audioBase64Length: result.audioBase64.length,
       })
 
       return successResponse(ctx, {
