@@ -130,18 +130,18 @@ export default class VoiceController {
         language: payload.language,
         conversationId: payload.conversationId,
       })
-      await pusherService.triggerVoiceResult(userId, {
+      await pusherService.triggerVoiceResultChunked(userId, {
         jobId,
         conversationId: result.conversation.id,
         transcript: result.transcript,
         response: {
           id: result.assistantMessage.id,
           content: result.assistantMessage.content,
-          metadata: result.assistantMessage.metadata,
+          metadata: result.assistantMessage.metadata ?? undefined,
         },
         audioData: result.audioBase64,
         audioFormat: 'mp3',
-        sentiment: result.sentiment,
+        sentiment: result.sentiment as unknown as Record<string, unknown>,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
