@@ -56,7 +56,9 @@ export default class ElevenLabsService {
 
       return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)))
     } catch (error) {
-      logger.error('ElevenLabs TTS error', { error })
+      const message = error instanceof Error ? error.message : String(error)
+      const stack = error instanceof Error ? error.stack : undefined
+      logger.error(`ElevenLabs TTS error: ${message}`, { stack })
       throw error
     }
   }
@@ -95,7 +97,9 @@ export default class ElevenLabsService {
       logger.error('Unexpected STT response format', { response })
       throw new Error('Failed to extract text from STT response')
     } catch (error) {
-      logger.error('ElevenLabs STT error', { error })
+      const message = error instanceof Error ? error.message : String(error)
+      const stack = error instanceof Error ? error.stack : undefined
+      logger.error(`ElevenLabs STT error: ${message}`, { stack })
       throw error
     }
   }
@@ -108,7 +112,9 @@ export default class ElevenLabsService {
       const voices = await this.client.voices.getAll()
       return voices.voices || []
     } catch (error) {
-      logger.error('Error fetching voices', { error })
+      const message = error instanceof Error ? error.message : String(error)
+      const stack = error instanceof Error ? error.stack : undefined
+      logger.error(`Error fetching voices: ${message}`, { stack })
       return []
     }
   }

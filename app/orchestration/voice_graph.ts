@@ -7,6 +7,9 @@ import MessageRepository from '#repositories/message_repository'
 import OpenAIService from '#services/openai_service'
 import ElevenLabsService from '#services/elevenlabs_service'
 import type { VoiceGraphState } from '#orchestration/types'
+import { graphLogger, withGraphNodeLogger } from '#utils/graph_logger'
+
+const VOICE_GRAPH_NAME = 'voice_graph'
 
 const openaiService = new OpenAIService()
 const elevenlabsService = new ElevenLabsService()
@@ -150,15 +153,42 @@ async function updateConversation(state: State): Promise<Partial<State>> {
 
 export function createVoiceGraph() {
   const builder = new StateGraph(StateAnnotation)
-    .addNode('resolve_conversation', resolveConversation)
-    .addNode('speech_to_text', speechToText)
-    .addNode('save_user_message', saveUserMessage)
-    .addNode('load_history', loadHistory)
-    .addNode('analyze_sentiment', analyzeSentiment)
-    .addNode('generate_response', generateResponse)
-    .addNode('save_assistant_message', saveAssistantMessage)
-    .addNode('text_to_speech', textToSpeech)
-    .addNode('update_conversation', updateConversation)
+    .addNode(
+      'resolve_conversation',
+      withGraphNodeLogger(VOICE_GRAPH_NAME, 'resolve_conversation', resolveConversation)
+    )
+    .addNode(
+      'speech_to_text',
+      withGraphNodeLogger(VOICE_GRAPH_NAME, 'speech_to_text', speechToText)
+    )
+    .addNode(
+      'save_user_message',
+      withGraphNodeLogger(VOICE_GRAPH_NAME, 'save_user_message', saveUserMessage)
+    )
+    .addNode(
+      'load_history',
+      withGraphNodeLogger(VOICE_GRAPH_NAME, 'load_history', loadHistory)
+    )
+    .addNode(
+      'analyze_sentiment',
+      withGraphNodeLogger(VOICE_GRAPH_NAME, 'analyze_sentiment', analyzeSentiment)
+    )
+    .addNode(
+      'generate_response',
+      withGraphNodeLogger(VOICE_GRAPH_NAME, 'generate_response', generateResponse)
+    )
+    .addNode(
+      'save_assistant_message',
+      withGraphNodeLogger(VOICE_GRAPH_NAME, 'save_assistant_message', saveAssistantMessage)
+    )
+    .addNode(
+      'text_to_speech',
+      withGraphNodeLogger(VOICE_GRAPH_NAME, 'text_to_speech', textToSpeech)
+    )
+    .addNode(
+      'update_conversation',
+      withGraphNodeLogger(VOICE_GRAPH_NAME, 'update_conversation', updateConversation)
+    )
     .addEdge('__start__', 'resolve_conversation')
     .addEdge('resolve_conversation', 'speech_to_text')
     .addEdge('speech_to_text', 'save_user_message')
@@ -181,24 +211,44 @@ export interface VoiceGraphResult {
 }
 
 export async function runVoiceGraph(input: VoiceGraphState): Promise<VoiceGraphResult> {
-  const graph = createVoiceGraph()
-  const final = await graph.invoke({ voice: input })
-  const voice = final.voice as VoiceGraphState
-  if (voice.error) throw new Error(voice.error)
-  if (
-    !voice.conversation ||
-    !voice.transcript ||
-    !voice.assistantMessage ||
-    voice.audioBase64 === undefined ||
-    !voice.sentiment
-  ) {
-    throw new Error('Voice graph did not produce required outputs')
-  }
-  return {
-    conversation: voice.conversation,
-    transcript: voice.transcript,
-    assistantMessage: voice.assistantMessage,
-    audioBase64: voice.audioBase64,
-    sentiment: voice.sentiment,
+  graphLogger.graphStart(VOICE_GRAPH_NAME, {
+    userId: input.userId,
+    conversationId: input.conversationId,
+    audioFormat: input.audioFormat,
+  })
+  try {
+    const graph = createVoiceGraph()
+    const final = await graph.invoke({ voice: input })
+    const voice = final.voice as VoiceGraphState
+    if (voice.error) throw new Error(voice.error)
+    if (
+      !voice.conversation ||
+      !voice.transcript ||
+      !voice.assistantMessage ||
+      voice.audioBase64 === undefined ||
+      !voice.sentiment
+    ) {
+      throw new Error('Voice graph did not produce required outputs')
+    }
+    graphLogger.graphComplete(VOICE_GRAPH_NAME, {
+      conversationId: voice.conversation.id,
+      transcriptLength: voice.transcript.length,
+      assistantMessageId: voice.assistantMessage.id,
+      sentiment: voice.sentiment.sentiment,
+      hasCrisisIndicators: (voice.sentiment.crisisIndicators?.length ?? 0) > 0,
+    })
+    return {
+      conversation: voice.conversation,
+      transcript: voice.transcript,
+      assistantMessage: voice.assistantMessage,
+      audioBase64: voice.audioBase64,
+      sentiment: voice.sentiment,
+    }
+  } catch (error) {
+    graphLogger.graphError(VOICE_GRAPH_NAME, error, {
+      userId: input.userId,
+      conversationId: input.conversationId,
+    })
+    throw error
   }
 }

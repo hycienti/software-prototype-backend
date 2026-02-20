@@ -55,6 +55,10 @@ class PusherService {
   async triggerVoiceError(userId: number, data: { jobId: string; code: string; message: string }) {
     await this.trigger(`user-${userId}`, 'voice:error', data)
   }
+
+  async triggerVoiceProgress(userId: number, data: { jobId: string; step: string }) {
+    await this.trigger(`user-${userId}`, 'voice:progress', data)
+  }
 }
 
 export default new PusherService()

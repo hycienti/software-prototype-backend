@@ -122,6 +122,7 @@ export default class VoiceController {
     }
   ): Promise<void> {
     try {
+      await pusherService.triggerVoiceProgress(userId, { jobId, step: 'processing' })
       const result = await runVoiceGraph({
         userId,
         audioData: payload.audioData,
