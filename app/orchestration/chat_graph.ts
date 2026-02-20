@@ -1,7 +1,9 @@
 import { StateGraph, Annotation } from '@langchain/langgraph'
 import { DateTime } from 'luxon'
-import Conversation from '#models/conversation'
-import Message from '#models/message'
+import type Conversation from '#models/conversation'
+import type Message from '#models/message'
+import ConversationRepository from '#repositories/conversation_repository'
+import MessageRepository from '#repositories/message_repository'
 import OpenAIService from '#services/openai_service'
 import pusherService from '#services/pusher_service'
 import { streamProgressStore } from '#services/stream_progress_store'
@@ -9,6 +11,8 @@ import type { ChatGraphState, SentimentResult } from '#orchestration/types'
 import logger from '@adonisjs/core/services/logger'
 
 const openaiService = new OpenAIService()
+const conversationRepository = new ConversationRepository()
+const messageRepository = new MessageRepository()
 
 function mergeState(left: Partial<ChatGraphState>, right: Partial<ChatGraphState>): Partial<ChatGraphState> {
   return { ...left, ...right }
@@ -27,12 +31,9 @@ async function resolveConversation(state: State): Promise<Partial<State>> {
   const { userId, mode, conversationId } = state.chat as ChatGraphState
   let conversation: Conversation
   if (conversationId) {
-    conversation = await Conversation.query()
-      .where('id', conversationId)
-      .where('user_id', userId)
-      .firstOrFail()
+    conversation = await conversationRepository.findByIdAndUserId(conversationId, userId)
   } else {
-    conversation = await Conversation.create({
+    conversation = await conversationRepository.create({
       userId,
       mode: mode || 'text',
       title: null,
@@ -44,7 +45,7 @@ async function resolveConversation(state: State): Promise<Partial<State>> {
 async function saveUserMessage(state: State): Promise<Partial<State>> {
   const { conversation, message, stream } = state.chat as ChatGraphState
   if (!conversation) throw new Error('Conversation required')
-  const userMessage = await Message.create({
+  const userMessage = await messageRepository.create({
     conversationId: conversation.id,
     role: 'user',
     content: message,
@@ -59,10 +60,10 @@ async function saveUserMessage(state: State): Promise<Partial<State>> {
 async function loadHistory(state: State): Promise<Partial<State>> {
   const { conversation } = state.chat as ChatGraphState
   if (!conversation) throw new Error('Conversation required')
-  const previousMessages = await Message.query()
-    .where('conversation_id', conversation.id)
-    .orderBy('created_at', 'asc')
-    .limit(20)
+  const previousMessages = await messageRepository.listByConversationIdOrdered(
+    conversation.id,
+    20
+  )
   const chatMessages = previousMessages.map((msg) => ({
     role: msg.role as 'user' | 'assistant' | 'system',
     content: msg.content,
@@ -116,7 +117,7 @@ async function generateResponse(state: State): Promise<Partial<State>> {
 async function saveAssistantMessage(state: State): Promise<Partial<State>> {
   const { conversation, aiResponse, sentiment, stream, userMessage } = state.chat as ChatGraphState
   if (!conversation || aiResponse === undefined) throw new Error('Conversation and aiResponse required')
-  const assistantMessage = await Message.create({
+  const assistantMessage = await messageRepository.create({
     conversationId: conversation.id,
     role: 'assistant',
     content: aiResponse,
@@ -153,13 +154,14 @@ async function saveAssistantMessage(state: State): Promise<Partial<State>> {
 async function updateConversation(state: State): Promise<Partial<State>> {
   const { conversation, sentiment } = state.chat as ChatGraphState
   if (!conversation) return {}
-  conversation.lastMessageAt = DateTime.now()
-  conversation.metadata = {
-    ...(conversation.metadata || {}),
-    lastSentiment: sentiment?.sentiment ?? 'neutral',
-    hasCrisisIndicators: (sentiment?.crisisIndicators?.length ?? 0) > 0,
-  }
-  await conversation.save()
+  await conversationRepository.update(conversation, {
+    lastMessageAt: DateTime.now(),
+    metadata: {
+      ...(conversation.metadata || {}),
+      lastSentiment: sentiment?.sentiment ?? 'neutral',
+      hasCrisisIndicators: (sentiment?.crisisIndicators?.length ?? 0) > 0,
+    },
+  })
   return {}
 }
 
@@ -174,8 +176,9 @@ async function generateTitle(state: State): Promise<Partial<State>> {
       temperature: 0.5,
       maxTokens: 50,
     })
-    conversation.title = titleResponse.trim().slice(0, 50)
-    await conversation.save()
+    await conversationRepository.update(conversation, {
+      title: titleResponse.trim().slice(0, 50),
+    })
   } catch (error) {
     logger.warn('Failed to generate conversation title', { error })
   }

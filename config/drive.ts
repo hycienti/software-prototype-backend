@@ -3,7 +3,7 @@ import app from '@adonisjs/core/services/app'
 import { defineConfig, services } from '@adonisjs/drive'
 
 const driveConfig = defineConfig({
-  default: env.get('DRIVE_DISK'),
+  default: env.get('DRIVE_DISK', 'fs'),
 
   /**
    * The services object can be used to configure multiple file system
@@ -18,26 +18,26 @@ const driveConfig = defineConfig({
     }),
     s3: services.s3({
       credentials: {
-        accessKeyId: env.get('AWS_ACCESS_KEY_ID'),
-        secretAccessKey: env.get('AWS_SECRET_ACCESS_KEY'),
+        accessKeyId: env.get('AWS_ACCESS_KEY_ID', ''),
+        secretAccessKey: env.get('AWS_SECRET_ACCESS_KEY', ''),
       },
-      region: env.get('AWS_REGION'),
-      bucket: env.get('S3_BUCKET'),
+      region: env.get('AWS_REGION', ''),
+      bucket: env.get('S3_BUCKET', ''),
       visibility: 'public',
     }),
     r2: services.s3({
       credentials: {
-        accessKeyId: env.get('R2_KEY'),
-        secretAccessKey: env.get('R2_SECRET'),
+        accessKeyId: env.get('R2_KEY', ''),
+        secretAccessKey: env.get('R2_SECRET', ''),
       },
       region: 'auto',
-      bucket: env.get('R2_BUCKET'),
-      endpoint: env.get('R2_ENDPOINT'),
+      bucket: env.get('R2_BUCKET', ''),
+      endpoint: env.get('R2_ENDPOINT', ''),
       visibility: 'public',
     }),
     gcs: services.gcs({
-      credentials: env.get('GCS_KEY'),
-      bucket: env.get('GCS_BUCKET'),
+      credentials: env.get('GCS_KEY') as any,
+      bucket: env.get('GCS_BUCKET', ''),
       visibility: 'public',
     }),
   },

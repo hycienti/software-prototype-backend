@@ -1,59 +1,50 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import User from '#models/user'
-import Otp from '#models/otp'
+import UserService from '#services/user_service'
 import notificationSendService from '#services/notification_send_service'
 import {
   emailValidator,
   verifyOtpValidator,
   completeSignupValidator,
 } from '#validators/auth_validator'
-import { DateTime } from 'luxon'
-import crypto from 'node:crypto'
+import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
+
+const userService = new UserService()
+
+function serializeUser(user: { id: number; email: string; fullName: string | null; avatarUrl: string | null; emailVerified: boolean }) {
+  return {
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    avatarUrl: user.avatarUrl,
+    emailVerified: user.emailVerified,
+  }
+}
 
 export default class AuthController {
-
   /**
    * @sendOtp
    * @summary Send OTP to email
    * @tag Auth
-   * @description Sends a 6-digit OTP code to the provided email address.
-   * @requestBody {"email": "user@example.com"}
-   * @responseBody 200 - {"message": "OTP sent successfully", "expiresIn": 600}
-   * @responseBody 422 - {"errors": [{"message": "Invalid email", "field": "email"}]}
-   * @responseBody 429 - {"message": "Please wait before requesting another OTP code", "retryAfter": 60}
    */
-  async sendOtp({ request, response }: HttpContext) {
-    const { email } = await emailValidator.validate(request.all())
+  async sendOtp(ctx: HttpContext) {
+    const { email } = await emailValidator.validate(ctx.request.all())
 
-    // Rate limiting: Check if OTP was sent recently (within last 60 seconds)
-    const recentOtp = await Otp.query()
-      .where('email', email)
-      .where('created_at', '>', DateTime.now().minus({ seconds: 60 }).toSQL()!)
-      .where('verified', false)
-      .first()
+    const result = await userService.sendOtp(email)
 
-    if (recentOtp) {
-      return response.tooManyRequests({
-        message: 'Please wait before requesting another OTP code',
-        retryAfter: 60,
+    if ('rateLimited' in result && result.rateLimited) {
+      return ctx.response.status(429).json({
+        success: false,
+        error: {
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Please wait before requesting another OTP code',
+          details: { retryAfter: result.retryAfter },
+        },
       })
     }
 
-    // Invalidate any existing unverified OTPs for this email
-    await Otp.query().where('email', email).where('verified', false).update({ verified: true })
+    const otp = 'otp' in result ? result.otp : null
+    if (!otp) throw new Error('Unexpected state after sendOtp')
 
-    // Generate 6-digit OTP
-    const code = crypto.randomInt(100000, 999999).toString()
-
-    // Create OTP record (expires in 10 minutes)
-    const otp = await Otp.create({
-      email,
-      code,
-      verified: false,
-      expiresAt: DateTime.now().plus({ minutes: 10 }),
-    })
-
-    // Send OTP email via notification module (template-based, with retry support)
     try {
       const { ok } = await notificationSendService.send({
         notificationTypeSlug: 'otp_verification',
@@ -67,105 +58,71 @@ export default class AuthController {
           heading: 'Verification Code',
           body:
             'Please use the following code to verify your email address and continue with your Haven account:',
-          otpCode: code,
+          otpCode: otp.code,
           footer:
-            'This code will expire in 10 minutes. If you didn\'t request this code, please ignore this email.',
+            "This code will expire in 10 minutes. If you didn't request this code, please ignore this email.",
         },
       })
       if (!ok) throw new Error('Send failed')
-    } catch (error: any) {
-      console.error('Failed to send OTP email:', error)
-      await otp.delete()
-      return response.internalServerError({
-        message: 'Failed to send OTP email. Please try again later.',
-      })
+    } catch (error) {
+      await userService.deleteOtp(otp)
+      return errorResponse(
+        ctx,
+        ErrorCodes.INTERNAL_SERVER_ERROR,
+        'Failed to send OTP email. Please try again later.',
+        500
+      )
     }
 
-    return response.ok({
-      message: 'OTP sent successfully',
-      expiresIn: 600, // 10 minutes in seconds
-    })
+    return successResponse(ctx, { message: 'OTP sent successfully', expiresIn: 600 })
   }
 
   /**
    * @verifyOtp
    * @summary Verify OTP code
    * @tag Auth
-   * @description Verifies the OTP code and returns user info or indicates if signup is needed.
-   * @requestBody {"email": "user@example.com", "code": "123456"}
-   * @responseBody 200 - {"user": {"id": 1, "email": "user@example.com", "fullName": "Ada Lovelace", "avatarUrl": "https://cdn.haven.app/avatar.png", "emailVerified": true}, "token": {"type": "bearer", "value": "...", "expiresAt": "2026-01-23T12:00:00.000Z"}, "requiresSignup": false}
-   * @responseBody 400 - {"message": "Invalid OTP code. Please try again."}
-   * @responseBody 422 - {"errors": []}
    */
-  async verifyOtp({ request, response }: HttpContext) {
-    const { email, code } = await verifyOtpValidator.validate(request.all())
+  async verifyOtp(ctx: HttpContext) {
+    const { email, code } = await verifyOtpValidator.validate(ctx.request.all())
 
-    // Find the most recent unverified OTP for this email
-    const otp = await Otp.query()
-      .where('email', email)
-      .where('verified', false)
-      .orderBy('created_at', 'desc')
-      .first()
+    const result = await userService.verifyOtp(email, code)
 
-    if (!otp) {
-      return response.badRequest({
-        message: 'No OTP found for this email. Please request a new code.',
-      })
+    if ('error' in result) {
+      if (result.error === 'NO_OTP') {
+        return errorResponse(
+          ctx,
+          ErrorCodes.BAD_REQUEST,
+          'No OTP found for this email. Please request a new code.',
+          400
+        )
+      }
+      if (result.error === 'EXPIRED') {
+        return errorResponse(
+          ctx,
+          ErrorCodes.BAD_REQUEST,
+          'OTP code has expired. Please request a new code.',
+          400
+        )
+      }
+      return errorResponse(
+        ctx,
+        ErrorCodes.BAD_REQUEST,
+        'Invalid OTP code. Please try again.',
+        400
+      )
     }
 
-    // Check if OTP is expired
-    if (otp.isExpired()) {
-      await otp.merge({ verified: true }).save()
-      return response.badRequest({
-        message: 'OTP code has expired. Please request a new code.',
-      })
-    }
-
-    // Verify code
-    if (otp.code !== code) {
-      return response.badRequest({
-        message: 'Invalid OTP code. Please try again.',
-      })
-    }
-
-    // Mark OTP as verified
-    await otp.merge({ verified: true }).save()
-
-    // Check if user exists
-    const user = await User.findBy('email', email)
-
-    if (!user) {
-      // New user - requires signup (fullname)
-      return response.ok({
+    if (result.requiresSignup) {
+      return successResponse(ctx, {
         requiresSignup: true,
-        email,
+        email: result.email,
         message: 'Please complete your signup by providing your full name',
       })
     }
 
-    // Existing user - update last login and create token
-    await user
-      .merge({
-        emailVerified: true,
-        lastLoginAt: DateTime.now(),
-      })
-      .save()
-
-    const token = await User.accessTokens.create(user)
-
-    return response.ok({
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl,
-        emailVerified: user.emailVerified,
-      },
-      token: {
-        type: 'bearer',
-        value: token.value!.release(),
-        expiresAt: token.expiresAt?.toISOString(),
-      },
+    return successResponse(ctx, {
+      user: serializeUser(result.user),
+      token: result.token,
       requiresSignup: false,
     })
   }
@@ -174,61 +131,32 @@ export default class AuthController {
    * @completeSignup
    * @summary Complete signup with fullname
    * @tag Auth
-   * @description Completes the signup process for new users by saving their fullname.
-   * @requestBody {"email": "user@example.com", "fullName": "John Doe"}
-   * @responseBody 200 - {"user": {"id": 1, "email": "user@example.com", "fullName": "John Doe", "avatarUrl": "", "emailVerified": true}, "token": {"type": "bearer", "value": "...", "expiresAt": "2026-01-23T12:00:00.000Z"}}
-   * @responseBody 400 - {"message": "User already exists. Please sign in instead."}
-   * @responseBody 422 - {"errors": []}
    */
-  async completeSignup({ request, response }: HttpContext) {
-    const { email, fullName } = await completeSignupValidator.validate(request.all())
+  async completeSignup(ctx: HttpContext) {
+    const { email, fullName } = await completeSignupValidator.validate(ctx.request.all())
 
-    // Check if user already exists
-    const existingUser = await User.findBy('email', email)
-    if (existingUser) {
-      return response.badRequest({
-        message: 'User already exists. Please sign in instead.',
-      })
+    const result = await userService.completeSignup(email, fullName)
+
+    if ('error' in result) {
+      if (result.error === 'USER_EXISTS') {
+        return errorResponse(
+          ctx,
+          ErrorCodes.BAD_REQUEST,
+          'User already exists. Please sign in instead.',
+          400
+        )
+      }
+      return errorResponse(
+        ctx,
+        ErrorCodes.BAD_REQUEST,
+        'Please verify your email with OTP first.',
+        400
+      )
     }
 
-    // Verify that OTP was verified for this email
-    const verifiedOtp = await Otp.query()
-      .where('email', email)
-      .where('verified', true)
-      .where('expires_at', '>', DateTime.now().minus({ minutes: 10 }).toSQL()!)
-      .orderBy('created_at', 'desc')
-      .first()
-
-    if (!verifiedOtp) {
-      return response.badRequest({
-        message: 'Please verify your email with OTP first.',
-      })
-    }
-
-    // Create new user
-    const user = await User.create({
-      email,
-      fullName,
-      emailVerified: true,
-      lastLoginAt: DateTime.now(),
-    })
-
-    // Create access token
-    const token = await User.accessTokens.create(user)
-
-    return response.ok({
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl,
-        emailVerified: user.emailVerified,
-      },
-      token: {
-        type: 'bearer',
-        value: token.value!.release(),
-        expiresAt: token.expiresAt?.toISOString(),
-      },
+    return successResponse(ctx, {
+      user: serializeUser(result.user),
+      token: result.token,
     })
   }
 
@@ -236,39 +164,21 @@ export default class AuthController {
    * @refresh
    * @summary Refresh access token
    * @tag Auth
-   * @description Rotates the current bearer token (deletes old, issues new).
-   * @responseBody 200 - {"token": {"type": "bearer", "value": "...", "expiresAt": "2026-01-23T12:00:00.000Z"}}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async refresh({ auth, response }: HttpContext) {
-    const user = auth.user!
-
-    await User.accessTokens.delete(user, auth.user!.currentAccessToken.identifier)
-
-    const token = await User.accessTokens.create(user)
-
-    return response.ok({
-      token: {
-        type: 'bearer',
-        value: token.value!.release(),
-        expiresAt: token.expiresAt?.toISOString(),
-      },
-    })
+  async refresh(ctx: HttpContext) {
+    const user = ctx.auth.user! as import('#models/user').default
+    const token = await userService.refresh(user)
+    return successResponse(ctx, { token })
   }
 
   /**
    * @logout
    * @summary Logout
    * @tag Auth
-   * @description Invalidates the current bearer token.
-   * @responseBody 200 - {"message": "Logged out successfully"}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async logout({ auth, response }: HttpContext) {
-    const user = auth.user!
-
-    await User.accessTokens.delete(user, auth.user!.currentAccessToken.identifier)
-
-    return response.ok({ message: 'Logged out successfully' })
+  async logout(ctx: HttpContext) {
+    const user = ctx.auth.user! as import('#models/user').default
+    await userService.logout(user)
+    return successResponse(ctx, { message: 'Logged out successfully' })
   }
 }

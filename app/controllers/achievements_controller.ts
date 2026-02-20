@@ -1,28 +1,43 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import Achievement from '#models/achievement'
+import type Achievement from '#models/achievement'
+import AchievementService from '#services/achievement_service'
 import logger from '@adonisjs/core/services/logger'
+import { successResponse } from '#utils/response_helper'
+
+const achievementService = new AchievementService()
+
+function serializeAchievement(a: Achievement) {
+  return {
+    id: a.id,
+    type: a.type,
+    title: a.title,
+    description: a.description,
+    icon: a.icon,
+    iconColor: a.iconColor,
+    iconBgColor: a.iconBgColor,
+    threshold: a.threshold,
+    progress: a.progress,
+    isCompleted: a.isCompleted,
+    completedAt: a.completedAt?.toISO() ?? null,
+    createdAt: a.createdAt.toISO(),
+  }
+}
 
 export default class AchievementsController {
   /**
    * @index
    * @summary Get user achievements
-   * @description Returns all achievements for the authenticated user
-   * @queryParam completed - Filter by completion status (optional)
-   * @responseBody 200 - {"data": [...], "stats": {"total": 10, "completed": 5, "inProgress": 5}}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async index({ auth, request, response }: HttpContext) {
+  async index(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const { completed } = request.qs()
+      const user = ctx.auth.user!
+      const { completed } = ctx.request.qs() as { completed?: string }
 
-      const query = Achievement.query().where('user_id', user.id).orderBy('created_at', 'desc')
-
-      if (completed !== undefined) {
-        query.where('is_completed', completed === 'true')
-      }
-
-      const achievements = await query.exec()
+      const completedFilter =
+        completed !== undefined ? completed === 'true' : undefined
+      const achievements = await achievementService.listByUserId(user.id, {
+        completed: completedFilter,
+      })
 
       const stats = {
         total: achievements.length,
@@ -30,21 +45,8 @@ export default class AchievementsController {
         inProgress: achievements.filter((a) => !a.isCompleted).length,
       }
 
-      return response.ok({
-        data: achievements.map((a) => ({
-          id: a.id,
-          type: a.type,
-          title: a.title,
-          description: a.description,
-          icon: a.icon,
-          iconColor: a.iconColor,
-          iconBgColor: a.iconBgColor,
-          threshold: a.threshold,
-          progress: a.progress,
-          isCompleted: a.isCompleted,
-          completedAt: a.completedAt?.toISO() || null,
-          createdAt: a.createdAt.toISO(),
-        })),
+      return successResponse(ctx, {
+        data: achievements.map(serializeAchievement),
         stats,
       })
     } catch (error) {
@@ -56,35 +58,12 @@ export default class AchievementsController {
   /**
    * @show
    * @summary Get a specific achievement
-   * @description Returns a specific achievement by ID
-   * @responseBody 200 - {"achievement": {...}}
-   * @responseBody 404 - {"message": "Achievement not found"}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async show({ auth, params, response }: HttpContext) {
+  async show(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const achievement = await Achievement.query()
-        .where('id', params.id)
-        .where('user_id', user.id)
-        .firstOrFail()
-
-      return response.ok({
-        achievement: {
-          id: achievement.id,
-          type: achievement.type,
-          title: achievement.title,
-          description: achievement.description,
-          icon: achievement.icon,
-          iconColor: achievement.iconColor,
-          iconBgColor: achievement.iconBgColor,
-          threshold: achievement.threshold,
-          progress: achievement.progress,
-          isCompleted: achievement.isCompleted,
-          completedAt: achievement.completedAt?.toISO() || null,
-          createdAt: achievement.createdAt.toISO(),
-        },
-      })
+      const user = ctx.auth.user!
+      const achievement = await achievementService.getById(user.id, Number(ctx.params.id))
+      return successResponse(ctx, { achievement: serializeAchievement(achievement) })
     } catch (error) {
       logger.error('Error fetching achievement', { error })
       throw error

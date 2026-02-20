@@ -1,6 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import Conversation from '#models/conversation'
-import Message from '#models/message'
+import ConversationService from '#services/conversation_service'
 import pusherService from '#services/pusher_service'
 import { runChatGraph } from '#orchestration/chat_graph'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
@@ -9,8 +8,9 @@ import {
   getConversationHistoryValidator,
   streamStatusValidator,
 } from '#validators/conversation_validator'
-import { streamProgressStore } from '#services/stream_progress_store'
 import logger from '@adonisjs/core/services/logger'
+
+const conversationService = new ConversationService()
 
 export default class ConversationsController {
   /**
@@ -60,28 +60,27 @@ export default class ConversationsController {
       })
 
       return successResponse(ctx, {
-          conversation: {
-            id: result.conversation.id,
-            title: result.conversation.title,
-            mode: result.conversation.mode,
-            createdAt: result.conversation.createdAt,
-          },
-          message: {
-            id: result.userMessage.id,
-            role: result.userMessage.role,
-            content: result.userMessage.content,
-            createdAt: result.userMessage.createdAt,
-          },
-          response: {
-            id: result.assistantMessage.id,
-            role: result.assistantMessage.role,
-            content: result.assistantMessage.content,
-            metadata: result.assistantMessage.metadata,
-            createdAt: result.assistantMessage.createdAt,
-          },
-          sentiment: result.sentiment,
-        }
-      )
+        conversation: {
+          id: result.conversation.id,
+          title: result.conversation.title,
+          mode: result.conversation.mode,
+          createdAt: result.conversation.createdAt,
+        },
+        message: {
+          id: result.userMessage.id,
+          role: result.userMessage.role,
+          content: result.userMessage.content,
+          createdAt: result.userMessage.createdAt,
+        },
+        response: {
+          id: result.assistantMessage.id,
+          role: result.assistantMessage.role,
+          content: result.assistantMessage.content,
+          metadata: result.assistantMessage.metadata,
+          createdAt: result.assistantMessage.createdAt,
+        },
+        sentiment: result.sentiment,
+      })
     } catch (error) {
       const processingTime = Date.now() - startTime
       logger.error('Error sending message', {
@@ -112,11 +111,6 @@ export default class ConversationsController {
    * @getStreamStatus
    * @summary Get streaming progress (polling fallback)
    * @tag Conversations
-   * @description Returns current stream status for a conversation/message. Use when Pusher is unavailable.
-   * @queryParam conversationId - Conversation ID
-   * @queryParam userMessageId - User message ID (from stream:start)
-   * @responseBody 200 - {"success": true, "data": {"status": "pending"|"complete"|"error", "chunks"?: [], "fullContent"?: string, "messageId"?: number, "sentiment"?: {}, "error"?: string}}
-   * @responseBody 404 - {"success": false, "error": {"code": "NOT_FOUND", "message": "Stream not found"}}
    */
   async getStreamStatus(ctx: HttpContext) {
     const { request, auth } = ctx
@@ -124,14 +118,15 @@ export default class ConversationsController {
       const user = auth.user!
       const { conversationId, userMessageId } = await streamStatusValidator.validate(request.qs())
 
-      const conversation = await Conversation.query()
-        .where('id', conversationId)
-        .where('user_id', user.id)
-        .first()
+      const conversation = await conversationService.findByIdAndUserIdOrNull(
+        conversationId,
+        user.id
+      )
       if (!conversation) {
         return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Conversation not found', 404)
       }
 
+      const { streamProgressStore } = await import('#services/stream_progress_store')
       const state = streamProgressStore.get(conversationId, userMessageId)
       if (!state) {
         return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Stream not found', 404)
@@ -159,55 +154,24 @@ export default class ConversationsController {
    * @getHistory
    * @summary Get conversation history
    * @tag Conversations
-   * @description Get list of conversations with pagination
-   * @queryParam page - Page number (default: 1)
-   * @queryParam limit - Items per page (default: 20, max: 100)
-   * @responseBody 200 - {"conversations": [], "pagination": {}}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
   async getHistory(ctx: HttpContext) {
     const { request, auth } = ctx
     try {
       const user = auth.user!
-      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(request.qs())
-
-      const conversations = await Conversation.query()
-        .where('user_id', user.id)
-        .orderBy('last_message_at', 'desc')
-        .orderBy('created_at', 'desc')
-        .paginate(page, limit)
-
-      const conversationsWithMessages = await Promise.all(
-        conversations.all().map(async (conv) => {
-          const messages = await Message.query()
-            .where('conversation_id', conv.id)
-            .orderBy('created_at', 'asc')
-            .limit(50)
-
-          return {
-            id: conv.id,
-            title: conv.title,
-            mode: conv.mode,
-            messageCount: messages.length,
-            lastMessageAt: conv.lastMessageAt,
-            createdAt: conv.createdAt,
-            messages: messages.map((msg) => ({
-              id: msg.id,
-              role: msg.role,
-              content: msg.content,
-              createdAt: msg.createdAt,
-            })),
-          }
-        })
+      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(
+        request.qs()
       )
 
+      const result = await conversationService.listHistory(user.id, page, limit)
+
       return successResponse(ctx, {
-        conversations: conversationsWithMessages,
+        conversations: result.data,
         pagination: {
-          page: conversations.currentPage,
-          perPage: conversations.perPage,
-          total: conversations.total,
-          lastPage: conversations.lastPage,
+          page: result.page,
+          perPage: result.perPage,
+          total: result.total,
+          lastPage: result.lastPage,
         },
       })
     } catch (error) {
@@ -226,57 +190,27 @@ export default class ConversationsController {
    * @getConversation
    * @summary Get a specific conversation
    * @tag Conversations
-   * @description Get a conversation with all its messages (with pagination)
-   * @param conversationId - Conversation ID
-   * @queryParam page - Page number for messages (default: 1)
-   * @queryParam limit - Messages per page (default: 20, max: 100)
-   * @responseBody 200 - {"conversation": {...}, "messages": [...], "pagination": {...}}
-   * @responseBody 404 - {"message": "Conversation not found"}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
   async getConversation(ctx: HttpContext) {
     const { request, params, auth } = ctx
     try {
       const user = auth.user!
       const conversationId = Number(params.id)
-      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(request.qs())
+      const { page = 1, limit = 20 } = await getConversationHistoryValidator.validate(
+        request.qs()
+      )
 
-      const conversation = await Conversation.query()
-        .where('id', conversationId)
-        .where('user_id', user.id)
-        .firstOrFail()
-
-      const messagesQuery = Message.query()
-        .where('conversation_id', conversation.id)
-        .orderBy('created_at', 'desc')
-
-      const messages = await messagesQuery.paginate(page, limit)
+      const result = await conversationService.getConversationWithMessages(
+        conversationId,
+        user.id,
+        page,
+        limit
+      )
 
       return successResponse(ctx, {
-        conversation: {
-          id: conversation.id,
-          title: conversation.title,
-          mode: conversation.mode,
-          metadata: conversation.metadata,
-          lastMessageAt: conversation.lastMessageAt,
-          createdAt: conversation.createdAt,
-        },
-        messages: messages
-          .all()
-          .reverse()
-          .map((msg) => ({
-            id: msg.id,
-            role: msg.role,
-            content: msg.content,
-            metadata: msg.metadata,
-            createdAt: msg.createdAt,
-          })),
-        pagination: {
-          page: messages.currentPage,
-          perPage: messages.perPage,
-          total: messages.total,
-          lastPage: messages.lastPage,
-        },
+        conversation: result.conversation,
+        messages: result.messages,
+        pagination: result.pagination,
       })
     } catch (error) {
       logger.error('Error fetching conversation', { error, conversationId: params.id })
@@ -288,11 +222,6 @@ export default class ConversationsController {
    * @deleteConversation
    * @summary Delete a conversation
    * @tag Conversations
-   * @description Delete a conversation and all its messages
-   * @param conversationId - Conversation ID
-   * @responseBody 200 - {"message": "Conversation deleted successfully"}
-   * @responseBody 404 - {"message": "Conversation not found"}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
   async deleteConversation(ctx: HttpContext) {
     const { params, auth } = ctx
@@ -300,15 +229,9 @@ export default class ConversationsController {
       const user = auth.user!
       const conversationId = Number(params.id)
 
-      const conversation = await Conversation.query()
-        .where('id', conversationId)
-        .where('user_id', user.id)
-        .firstOrFail()
-
-      await conversation.delete()
+      await conversationService.deleteConversation(conversationId, user.id)
 
       logger.info('Conversation deleted', { conversationId, userId: user.id })
-
       return successResponse(ctx, { message: 'Conversation deleted successfully' })
     } catch (error) {
       logger.error('Error deleting conversation', { error, conversationId: params.id })
@@ -320,9 +243,6 @@ export default class ConversationsController {
    * @typing
    * @summary Broadcast typing indicator
    * @tag Conversations
-   * @description Send a typing indicator event to other participants
-   * @requestBody {"conversationId": 1, "isTyping": true}
-   * @responseBody 200 - {"success": true}
    */
   async typing(ctx: HttpContext) {
     const { request, auth } = ctx

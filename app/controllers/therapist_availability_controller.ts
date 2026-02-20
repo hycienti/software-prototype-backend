@@ -1,8 +1,11 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import { DateTime } from 'luxon'
-import AvailabilitySlot from '#models/availability_slot'
+import type AvailabilitySlot from '#models/availability_slot'
+import TherapistService from '#services/therapist_service'
 import logger from '@adonisjs/core/services/logger'
 import { updateAvailabilityValidator } from '#validators/availability_validator'
+import { successResponse } from '#utils/response_helper'
+
+const therapistService = new TherapistService()
 
 function serializeSlot(slot: AvailabilitySlot) {
   return {
@@ -16,64 +19,46 @@ function serializeSlot(slot: AvailabilitySlot) {
   }
 }
 
-/**
- * GET/PUT therapist availability and meeting link.
- * Slots are stored in availability_slots table.
- */
 export default class TherapistAvailabilityController {
-  /**
-   * @responseBody 200 - {"acceptingNewClients": true, "personalMeetingLink": "https://zoom.us/j/123", "availabilitySlots": []}
-   */
-  async show({ auth, response }: HttpContext) {
-    const therapist = auth.use('therapist').user!
-    await therapist.load('availabilitySlots', (q) => q.orderBy('sort_order'))
-    return response.ok({
-      acceptingNewClients: therapist.acceptingNewClients ?? true,
-      personalMeetingLink: therapist.personalMeetingLink ?? null,
-      availabilitySlots: (therapist.availabilitySlots ?? []).map(serializeSlot),
+  async show(ctx: HttpContext) {
+    const therapist = ctx.auth.use('therapist').user!
+    const { therapist: t, availabilitySlots } = await therapistService.getMeWithSlots(therapist.id)
+    return successResponse(ctx, {
+      acceptingNewClients: t.acceptingNewClients ?? true,
+      personalMeetingLink: t.personalMeetingLink ?? null,
+      availabilitySlots: availabilitySlots.map(serializeSlot),
     })
   }
 
-  /**
-   * @responseBody 200 - {"acceptingNewClients": true, "personalMeetingLink": "https://zoom.us/j/123", "availabilitySlots": []}
-   */
-  async update({ auth, request, response }: HttpContext) {
-    const therapist = auth.use('therapist').user!
-    const payload = await updateAvailabilityValidator.validate(request.all())
+  async update(ctx: HttpContext) {
+    const therapist = ctx.auth.use('therapist').user!
+    const payload = await updateAvailabilityValidator.validate(ctx.request.all())
 
-    if (payload.acceptingNewClients !== undefined) {
-      therapist.acceptingNewClients = payload.acceptingNewClients
+    if (payload.acceptingNewClients !== undefined || payload.personalMeetingLink !== undefined) {
+      await therapistService.updateMe(therapist.id, {
+        acceptingNewClients: payload.acceptingNewClients,
+        personalMeetingLink: payload.personalMeetingLink ?? null,
+      } as any)
     }
-    if (payload.personalMeetingLink !== undefined) {
-      therapist.personalMeetingLink = payload.personalMeetingLink || null
-    }
-    await therapist.save()
 
     if (payload.availabilitySlots !== undefined) {
-      await AvailabilitySlot.query().where('therapist_id', therapist.id).delete()
-      for (let i = 0; i < payload.availabilitySlots.length; i++) {
-        const s = payload.availabilitySlots[i]
-        const type = s.type ?? (s.date ? 'one_off' : 'recurring')
-        await AvailabilitySlot.create({
-          therapistId: therapist.id,
-          type,
-          label: s.label || null,
-          days: type === 'recurring' && s.days ? s.days : null,
-          date: type === 'one_off' && s.date ? DateTime.fromISO(s.date) : null,
-          startTime: s.startTime,
-          endTime: s.endTime,
-          sortOrder: i,
-        })
-      }
+      const slots = payload.availabilitySlots.map((s) => ({
+        type: (s.type ?? (s.date ? 'one_off' : 'recurring')) as 'recurring' | 'one_off',
+        label: s.label,
+        days: s.days,
+        date: s.date,
+        startTime: s.startTime,
+        endTime: s.endTime,
+      }))
+      await therapistService.replaceAvailabilitySlots(therapist.id, slots)
     }
 
-    await therapist.load('availabilitySlots', (q) => q.orderBy('sort_order'))
+    const { therapist: t, availabilitySlots } = await therapistService.getMeWithSlots(therapist.id)
     logger.info({ therapistId: therapist.id }, 'Therapist availability updated')
-
-    return response.ok({
-      acceptingNewClients: therapist.acceptingNewClients,
-      personalMeetingLink: therapist.personalMeetingLink,
-      availabilitySlots: (therapist.availabilitySlots ?? []).map(serializeSlot),
+    return successResponse(ctx, {
+      acceptingNewClients: t.acceptingNewClients,
+      personalMeetingLink: t.personalMeetingLink,
+      availabilitySlots: availabilitySlots.map(serializeSlot),
     })
   }
 }
