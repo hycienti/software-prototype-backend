@@ -1,13 +1,17 @@
 import { StateGraph, Annotation } from '@langchain/langgraph'
 import { DateTime } from 'luxon'
-import Conversation from '#models/conversation'
-import Message from '#models/message'
+import type Conversation from '#models/conversation'
+import type Message from '#models/message'
+import ConversationRepository from '#repositories/conversation_repository'
+import MessageRepository from '#repositories/message_repository'
 import OpenAIService from '#services/openai_service'
 import ElevenLabsService from '#services/elevenlabs_service'
 import type { VoiceGraphState } from '#orchestration/types'
 
 const openaiService = new OpenAIService()
 const elevenlabsService = new ElevenLabsService()
+const conversationRepository = new ConversationRepository()
+const messageRepository = new MessageRepository()
 
 function mergeState(
   left: Partial<VoiceGraphState>,
@@ -30,12 +34,9 @@ async function resolveConversation(state: State): Promise<Partial<State>> {
   const { userId, conversationId } = state.voice as VoiceGraphState
   let conversation: Conversation
   if (conversationId) {
-    conversation = await Conversation.query()
-      .where('id', conversationId)
-      .where('user_id', userId)
-      .firstOrFail()
+    conversation = await conversationRepository.findByIdAndUserId(conversationId, userId)
   } else {
-    conversation = await Conversation.create({
+    conversation = await conversationRepository.create({
       userId,
       mode: 'voice',
       title: null,
@@ -60,7 +61,7 @@ async function speechToText(state: State): Promise<Partial<State>> {
 async function saveUserMessage(state: State): Promise<Partial<State>> {
   const { conversation, transcript, audioFormat } = state.voice as VoiceGraphState
   if (!conversation || !transcript) throw new Error('Conversation and transcript required')
-  await Message.create({
+  await messageRepository.create({
     conversationId: conversation.id,
     role: 'user',
     content: transcript,
@@ -75,10 +76,10 @@ async function saveUserMessage(state: State): Promise<Partial<State>> {
 async function loadHistory(state: State): Promise<Partial<State>> {
   const { conversation } = state.voice as VoiceGraphState
   if (!conversation) throw new Error('Conversation required')
-  const previousMessages = await Message.query()
-    .where('conversation_id', conversation.id)
-    .orderBy('created_at', 'asc')
-    .limit(20)
+  const previousMessages = await messageRepository.listByConversationIdOrdered(
+    conversation.id,
+    20
+  )
   const chatMessages = previousMessages.map((msg) => ({
     role: msg.role as 'user' | 'assistant' | 'system',
     content: msg.content,
@@ -107,7 +108,7 @@ async function generateResponse(state: State): Promise<Partial<State>> {
 async function saveAssistantMessage(state: State): Promise<Partial<State>> {
   const { conversation, aiResponse, sentiment } = state.voice as VoiceGraphState
   if (!conversation || aiResponse === undefined) throw new Error('Conversation and aiResponse required')
-  const assistantMessage = await Message.create({
+  const assistantMessage = await messageRepository.create({
     conversationId: conversation.id,
     role: 'assistant',
     content: aiResponse,
@@ -136,13 +137,14 @@ async function textToSpeech(state: State): Promise<Partial<State>> {
 async function updateConversation(state: State): Promise<Partial<State>> {
   const { conversation, sentiment } = state.voice as VoiceGraphState
   if (!conversation) return {}
-  conversation.lastMessageAt = DateTime.now()
-  conversation.metadata = {
-    ...(conversation.metadata || {}),
-    lastSentiment: sentiment?.sentiment ?? 'neutral',
-    hasCrisisIndicators: (sentiment?.crisisIndicators?.length ?? 0) > 0,
-  }
-  await conversation.save()
+  await conversationRepository.update(conversation, {
+    lastMessageAt: DateTime.now(),
+    metadata: {
+      ...(conversation.metadata || {}),
+      lastSentiment: sentiment?.sentiment ?? 'neutral',
+      hasCrisisIndicators: (sentiment?.crisisIndicators?.length ?? 0) > 0,
+    },
+  })
   return {}
 }
 

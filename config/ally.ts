@@ -3,9 +3,9 @@ import { defineConfig, services } from '@adonisjs/ally'
 
 const allyConfig = defineConfig({
   google: services.google({
-    clientId: env.get('GOOGLE_CLIENT_ID'),
-    clientSecret: env.get('GOOGLE_CLIENT_SECRET'),
-    callbackUrl: `${env.get('APP_URL')}/api/v1/auth/google/callback`,
+    clientId: env.get('GOOGLE_CLIENT_ID', ''),
+    clientSecret: env.get('GOOGLE_CLIENT_SECRET', ''),
+    callbackUrl: `${env.get('APP_URL', '')}/api/v1/auth/google/callback`,
   }),
 })
 

@@ -1,36 +1,54 @@
-import Notification from '#models/notification'
-import pusherService from '#services/pusher_service'
+import type Notification from '#models/notification'
+import NotificationRepository from '#repositories/notification_repository'
 
-export class NotificationService {
-  async notify(
-    userId: number,
-    payload: {
-      title: string
-      message: string
-      type?: string
-      data?: any
-    }
-  ) {
-    const notification = await Notification.create({
-      userId,
-      title: payload.title,
-      message: payload.message,
-      type: payload.type || 'info',
-      isRead: false,
-      data: payload.data,
-    })
+const notificationRepository = new NotificationRepository()
 
-    await pusherService.trigger(`user-${userId}`, 'notification:received', notification.toJSON())
-
-    return notification
+export default class NotificationService {
+  async listByUserId(userId: number, limit?: number): Promise<Notification[]> {
+    return notificationRepository.listByUserId(userId, limit ?? 50)
   }
 
-  async markAllAsRead(userId: number) {
-    await Notification.query()
-      .where('userId', userId)
-      .where('isRead', false)
-      .update({ isRead: true })
+  async findByIdAndUserId(id: number, userId: number): Promise<Notification> {
+    return notificationRepository.findByIdAndUserId(id, userId)
+  }
+
+  async markRead(notification: Notification): Promise<Notification> {
+    return notificationRepository.markRead(notification)
+  }
+
+  async markAllReadByUserId(userId: number): Promise<void> {
+    return notificationRepository.markAllReadByUserId(userId)
+  }
+
+  async deleteByIdAndUserId(id: number, userId: number): Promise<void> {
+    const notification = await notificationRepository.findByIdAndUserId(id, userId)
+    await notificationRepository.delete(notification)
+  }
+
+  async listByTherapistId(
+    therapistId: number,
+    page: number,
+    limit: number,
+    options?: { isRead?: boolean }
+  ): Promise<{ data: Notification[]; total: number }> {
+    return notificationRepository.listByTherapistIdPaginated(
+      therapistId,
+      page,
+      limit,
+      options
+    )
+  }
+
+  async findByIdAndTherapistId(id: number, therapistId: number): Promise<Notification> {
+    return notificationRepository.findByIdAndTherapistId(id, therapistId)
+  }
+
+  async markAllReadByTherapistId(therapistId: number): Promise<void> {
+    return notificationRepository.markAllReadByTherapistId(therapistId)
+  }
+
+  async deleteByIdAndTherapistId(id: number, therapistId: number): Promise<void> {
+    const notification = await notificationRepository.findByIdAndTherapistId(id, therapistId)
+    await notificationRepository.delete(notification)
   }
 }
-
-export default new NotificationService()

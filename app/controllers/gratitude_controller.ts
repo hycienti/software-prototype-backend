@@ -1,19 +1,29 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import Gratitude from '#models/gratitude'
+import type Gratitude from '#models/gratitude'
 import GratitudeService from '#services/gratitude_service'
 import QuotesService from '#services/quotes_service'
-import AIInsightsService from '#services/ai_insights_service'
 import {
   createGratitudeValidator,
   updateGratitudeValidator,
   getGratitudeHistoryValidator,
 } from '#validators/gratitude_validator'
 import logger from '@adonisjs/core/services/logger'
-import { DateTime } from 'luxon'
+import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
 
 const gratitudeService = new GratitudeService()
 const quotesService = new QuotesService()
-const aiInsightsService = new AIInsightsService()
+
+function serializeGratitude(g: Gratitude) {
+  return {
+    id: g.id,
+    entries: g.entries,
+    photoUrl: g.photoUrl,
+    entryDate: g.entryDate.toISODate(),
+    metadata: g.metadata,
+    createdAt: g.createdAt.toISO(),
+    updatedAt: g.updatedAt?.toISO(),
+  }
+}
 
 export default class GratitudeController {
   /**
@@ -25,58 +35,35 @@ export default class GratitudeController {
    * @responseBody 400 - {"errors": []}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async create({ auth, request, response }: HttpContext) {
+  async create(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const payload = await createGratitudeValidator.validate(request.all())
+      const user = ctx.auth.user!
+      const payload = await createGratitudeValidator.validate(ctx.request.all())
 
-      // Use provided date or default to today
-      const entryDate = payload.entryDate ? DateTime.fromJSDate(payload.entryDate) : DateTime.now()
-
-      // Check if entry already exists for this date
-      const existingEntry = await Gratitude.query()
-        .where('user_id', user.id)
-        .where('entry_date', entryDate.toISODate()!)
-        .first()
-
-      if (existingEntry) {
-        return response.conflict({
-          message: 'A gratitude entry already exists for this date',
-          gratitude: existingEntry,
-        })
-      }
-
-      const gratitude = await Gratitude.create({
-        userId: user.id,
+      const result = await gratitudeService.create(user.id, {
         entries: payload.entries,
-        photoUrl: payload.photoUrl || null,
-        entryDate: entryDate.startOf('day'),
-        metadata: payload.metadata || null,
+        photoUrl: payload.photoUrl,
+        entryDate: payload.entryDate,
+        metadata: payload.metadata,
       })
 
-      // Check and update achievements
-      await gratitudeService.checkAndUpdateAchievements(user.id)
-
-      // Invalidate AI insights cache to regenerate on next request
-      await aiInsightsService.invalidateCache(user.id, 'gratitude')
+      if (result.existing) {
+        return errorResponse(
+          ctx,
+          ErrorCodes.CONFLICT,
+          'A gratitude entry already exists for this date',
+          409,
+          { gratitude: serializeGratitude(result.gratitude) }
+        )
+      }
 
       logger.info('Gratitude entry created', {
         userId: user.id,
-        gratitudeId: gratitude.id,
-        entryDate: entryDate.toISODate(),
+        gratitudeId: result.gratitude.id,
+        entryDate: result.gratitude.entryDate.toISODate(),
       })
 
-      return response.created({
-        gratitude: {
-          id: gratitude.id,
-          entries: gratitude.entries,
-          photoUrl: gratitude.photoUrl,
-          entryDate: gratitude.entryDate.toISODate(),
-          metadata: gratitude.metadata,
-          createdAt: gratitude.createdAt.toISO(),
-          updatedAt: gratitude.updatedAt?.toISO(),
-        },
-      })
+      return successResponse(ctx, { gratitude: serializeGratitude(result.gratitude) }, 201)
     } catch (error) {
       logger.error('Error creating gratitude entry', { error })
       throw error
@@ -94,41 +81,25 @@ export default class GratitudeController {
    * @responseBody 200 - {"data": [...], "meta": {"total": 10, "page": 1, "limit": 20}}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async index({ auth, request, response }: HttpContext) {
+  async index(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const payload = await getGratitudeHistoryValidator.validate(request.qs())
+      const user = ctx.auth.user!
+      const payload = await getGratitudeHistoryValidator.validate(ctx.request.qs())
 
-      const page = payload.page || 1
-      const limit = Math.min(payload.limit || 20, 100)
+      const result = await gratitudeService.listForUser(user.id, {
+        page: payload.page,
+        limit: payload.limit,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+      })
 
-      const query = Gratitude.query().where('user_id', user.id).orderBy('entry_date', 'desc')
-
-      // Apply date filters if provided
-      if (payload.startDate) {
-        query.where('entry_date', '>=', DateTime.fromJSDate(payload.startDate).toISODate()!)
-      }
-      if (payload.endDate) {
-        query.where('entry_date', '<=', DateTime.fromJSDate(payload.endDate).toISODate()!)
-      }
-
-      const gratitudes = await query.paginate(page, limit)
-
-      return response.ok({
-        data: gratitudes.all().map((g) => ({
-          id: g.id,
-          entries: g.entries,
-          photoUrl: g.photoUrl,
-          entryDate: g.entryDate.toISODate(),
-          metadata: g.metadata,
-          createdAt: g.createdAt.toISO(),
-          updatedAt: g.updatedAt?.toISO(),
-        })),
+      return successResponse(ctx, {
+        data: result.data.map(serializeGratitude),
         meta: {
-          total: gratitudes.total,
-          page: gratitudes.currentPage,
-          limit: gratitudes.perPage,
-          lastPage: gratitudes.lastPage,
+          total: result.total,
+          page: result.page,
+          limit: result.perPage,
+          lastPage: result.lastPage,
         },
       })
     } catch (error) {
@@ -145,25 +116,11 @@ export default class GratitudeController {
    * @responseBody 404 - {"message": "Gratitude entry not found"}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async show({ auth, params, response }: HttpContext) {
+  async show(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const gratitude = await Gratitude.query()
-        .where('id', params.id)
-        .where('user_id', user.id)
-        .firstOrFail()
-
-      return response.ok({
-        gratitude: {
-          id: gratitude.id,
-          entries: gratitude.entries,
-          photoUrl: gratitude.photoUrl,
-          entryDate: gratitude.entryDate.toISODate(),
-          metadata: gratitude.metadata,
-          createdAt: gratitude.createdAt.toISO(),
-          updatedAt: gratitude.updatedAt?.toISO(),
-        },
-      })
+      const user = ctx.auth.user!
+      const gratitude = await gratitudeService.getById(user.id, Number(ctx.params.id))
+      return successResponse(ctx, { gratitude: serializeGratitude(gratitude) })
     } catch (error) {
       logger.error('Error fetching gratitude entry', { error })
       throw error
@@ -179,44 +136,19 @@ export default class GratitudeController {
    * @responseBody 404 - {"message": "Gratitude entry not found"}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async update({ auth, params, request, response }: HttpContext) {
+  async update(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const payload = await updateGratitudeValidator.validate(request.all())
+      const user = ctx.auth.user!
+      const payload = await updateGratitudeValidator.validate(ctx.request.all())
 
-      const gratitude = await Gratitude.query()
-        .where('id', params.id)
-        .where('user_id', user.id)
-        .firstOrFail()
-
-      if (payload.entries) {
-        gratitude.entries = payload.entries
-      }
-      if (payload.photoUrl !== undefined) {
-        gratitude.photoUrl = payload.photoUrl
-      }
-      if (payload.metadata !== undefined) {
-        gratitude.metadata = payload.metadata
-      }
-
-      await gratitude.save()
-
-      logger.info('Gratitude entry updated', {
-        userId: user.id,
-        gratitudeId: gratitude.id,
+      const gratitude = await gratitudeService.update(user.id, Number(ctx.params.id), {
+        entries: payload.entries,
+        photoUrl: payload.photoUrl,
+        metadata: payload.metadata,
       })
 
-      return response.ok({
-        gratitude: {
-          id: gratitude.id,
-          entries: gratitude.entries,
-          photoUrl: gratitude.photoUrl,
-          entryDate: gratitude.entryDate.toISODate(),
-          metadata: gratitude.metadata,
-          createdAt: gratitude.createdAt.toISO(),
-          updatedAt: gratitude.updatedAt?.toISO(),
-        },
-      })
+      logger.info('Gratitude entry updated', { userId: user.id, gratitudeId: gratitude.id })
+      return successResponse(ctx, { gratitude: serializeGratitude(gratitude) })
     } catch (error) {
       logger.error('Error updating gratitude entry', { error })
       throw error
@@ -231,25 +163,12 @@ export default class GratitudeController {
    * @responseBody 404 - {"message": "Gratitude entry not found"}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async destroy({ auth, params, response }: HttpContext) {
+  async destroy(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const gratitude = await Gratitude.query()
-        .where('id', params.id)
-        .where('user_id', user.id)
-        .firstOrFail()
-
-      await gratitude.delete()
-
-      // Recalculate achievements after deletion
-      await gratitudeService.checkAndUpdateAchievements(user.id)
-
-      logger.info('Gratitude entry deleted', {
-        userId: user.id,
-        gratitudeId: params.id,
-      })
-
-      return response.ok({ message: 'Gratitude entry deleted successfully' })
+      const user = ctx.auth.user!
+      await gratitudeService.destroy(user.id, Number(ctx.params.id))
+      logger.info('Gratitude entry deleted', { userId: user.id, gratitudeId: ctx.params.id })
+      return successResponse(ctx, { message: 'Gratitude entry deleted successfully' })
     } catch (error) {
       logger.error('Error deleting gratitude entry', { error })
       throw error
@@ -263,21 +182,11 @@ export default class GratitudeController {
    * @responseBody 200 - {"streak": 12, "lastEntryDate": "2026-01-20"}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async streak({ auth, response }: HttpContext) {
+  async streak(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const streak = await gratitudeService.calculateStreak(user.id)
-
-      // Get last entry date
-      const lastEntry = await Gratitude.query()
-        .where('user_id', user.id)
-        .orderBy('entry_date', 'desc')
-        .first()
-
-      return response.ok({
-        streak,
-        lastEntryDate: lastEntry?.entryDate.toISODate() || null,
-      })
+      const user = ctx.auth.user!
+      const result = await gratitudeService.getStreak(user.id)
+      return successResponse(ctx, result)
     } catch (error) {
       logger.error('Error fetching gratitude streak', { error })
       throw error
@@ -291,12 +200,11 @@ export default class GratitudeController {
    * @responseBody 200 - {"totalEntries": 50, "currentStreak": 12, "longestStreak": 30, ...}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async insights({ auth, response }: HttpContext) {
+  async insights(ctx: HttpContext) {
     try {
-      const user = auth.user!
+      const user = ctx.auth.user!
       const insights = await gratitudeService.getGrowthInsights(user.id)
-
-      return response.ok(insights)
+      return successResponse(ctx, insights)
     } catch (error) {
       logger.error('Error fetching gratitude insights', { error })
       throw error
@@ -310,15 +218,14 @@ export default class GratitudeController {
    * @responseBody 200 - {"text": "Gratitude quote...", "author": "Author Name"}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async randomQuote({ response }: HttpContext) {
+  async randomQuote(ctx: HttpContext) {
     try {
       const quote = await quotesService.getRandomQuote()
-      return response.ok(quote)
+      return successResponse(ctx, quote)
     } catch (error) {
       logger.error('Error fetching random quote', { error })
-      // Return fallback quote even if there's an error
       const fallbackQuote = quotesService.getQuoteByIndex(0)
-      return response.ok(fallbackQuote)
+      return successResponse(ctx, fallbackQuote)
     }
   }
 }

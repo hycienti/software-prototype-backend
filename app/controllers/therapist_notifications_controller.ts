@@ -1,40 +1,29 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import Notification from '#models/notification'
+import NotificationService from '#services/notification_service'
 import { notificationsListValidator } from '#validators/list_validator'
 import { defaultListParams } from '#validators/list_validator'
+import { successResponse } from '#utils/response_helper'
 
-/**
- * Notifications for therapist app. All operations filter by therapist_id.
- * Query: page, limit, isRead (optional "true" | "false").
- */
+const notificationService = new NotificationService()
+
 export default class TherapistNotificationsController {
-  /**
-   * @responseBody 200 - {"notifications": [{"id": 1, "title": "New session", "message": "Session booked", "type": "session", "isRead": false, "createdAt": "2026-01-20T10:00:00.000Z"}], "meta": {"page": 1, "limit": 20, "total": 1}}
-   */
-  async index({ auth, request, response }: HttpContext) {
-    const therapist = auth.use('therapist').user!
-    const raw = await notificationsListValidator.validate(request.qs())
+  async index(ctx: HttpContext) {
+    const therapist = ctx.auth.use('therapist').user!
+    const raw = await notificationsListValidator.validate(ctx.request.qs())
     const page = raw.page ?? defaultListParams.page
     const limit = raw.limit ?? defaultListParams.limit
     const isReadFilter =
-      raw.isRead === undefined ? undefined : raw.isRead === 'true' || raw.isRead === true
+      raw.isRead === undefined ? undefined : raw.isRead === 'true'
 
-    let baseQuery = Notification.query().where('therapist_id', therapist.id)
+    const result = await notificationService.listByTherapistId(
+      therapist.id,
+      page,
+      limit,
+      { isRead: isReadFilter }
+    )
 
-    if (isReadFilter !== undefined) {
-      baseQuery = baseQuery.where('is_read', isReadFilter)
-    }
-
-    const total = await baseQuery.clone().count('* as total').first()
-    const totalCount = Number(total?.$extras?.total ?? 0)
-
-    const notifications = await baseQuery
-      .orderBy('created_at', 'desc')
-      .offset((page - 1) * limit)
-      .limit(limit)
-
-    return response.ok({
-      notifications: notifications.map((n) => ({
+    return successResponse(ctx, {
+      notifications: result.data.map((n) => ({
         id: n.id,
         title: n.title,
         message: n.message,
@@ -43,50 +32,29 @@ export default class TherapistNotificationsController {
         data: n.data,
         createdAt: n.createdAt.toISO(),
       })),
-      meta: { page, limit, total: totalCount },
+      meta: { page, limit, total: result.total },
     })
   }
 
-  /**
-   * @responseBody 204 - {}
-   */
-  async markAllAsRead({ auth, response }: HttpContext) {
-    const therapist = auth.use('therapist').user!
-    await Notification.query()
-      .where('therapist_id', therapist.id)
-      .where('is_read', false)
-      .update({ is_read: true })
-
-    return response.noContent()
+  async markAllAsRead(ctx: HttpContext) {
+    const therapist = ctx.auth.use('therapist').user!
+    await notificationService.markAllReadByTherapistId(therapist.id)
+    return ctx.response.status(204).send(null)
   }
 
-  /**
-   * @responseBody 200 - {"id": 1, "title": "New session", "message": "Session booked", "type": "session", "isRead": true}
-   */
-  async update({ auth, params, response }: HttpContext) {
-    const therapist = auth.use('therapist').user!
-    const notification = await Notification.query()
-      .where('id', params.id)
-      .where('therapist_id', therapist.id)
-      .firstOrFail()
-
-    notification.isRead = true
-    await notification.save()
-
-    return response.ok(notification)
+  async update(ctx: HttpContext) {
+    const therapist = ctx.auth.use('therapist').user!
+    const notification = await notificationService.findByIdAndTherapistId(
+      Number(ctx.params.id),
+      therapist.id
+    )
+    const updated = await notificationService.markRead(notification)
+    return successResponse(ctx, updated)
   }
 
-  /**
-   * @responseBody 204 - {}
-   */
-  async destroy({ auth, params, response }: HttpContext) {
-    const therapist = auth.use('therapist').user!
-    const notification = await Notification.query()
-      .where('id', params.id)
-      .where('therapist_id', therapist.id)
-      .firstOrFail()
-
-    await notification.delete()
-    return response.noContent()
+  async destroy(ctx: HttpContext) {
+    const therapist = ctx.auth.use('therapist').user!
+    await notificationService.deleteByIdAndTherapistId(Number(ctx.params.id), therapist.id)
+    return ctx.response.status(204).send(null)
   }
 }

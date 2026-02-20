@@ -1,17 +1,30 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import Mood from '#models/mood'
+import type Mood from '#models/mood'
 import MoodService from '#services/mood_service'
-import AIInsightsService from '#services/ai_insights_service'
 import {
   createMoodValidator,
   updateMoodValidator,
   getMoodHistoryValidator,
 } from '#validators/mood_validator'
 import logger from '@adonisjs/core/services/logger'
-import { DateTime } from 'luxon'
+import { successResponse } from '#utils/response_helper'
 
 const moodService = new MoodService()
-const aiInsightsService = new AIInsightsService()
+
+function serializeMood(m: Mood) {
+  return {
+    id: m.id,
+    mood: m.mood,
+    intensity: m.intensity,
+    notes: m.notes,
+    photoUrl: m.photoUrl,
+    entryDate: m.entryDate.toISODate(),
+    tags: m.tags,
+    metadata: m.metadata,
+    createdAt: m.createdAt.toISO(),
+    updatedAt: m.updatedAt?.toISO(),
+  }
+}
 
 export default class MoodController {
   /**
@@ -23,52 +36,29 @@ export default class MoodController {
    * @responseBody 400 - {"errors": []}
    * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async create({ auth, request, response }: HttpContext) {
+  async create(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const payload = await createMoodValidator.validate(request.all())
+      const user = ctx.auth.user!
+      const payload = await createMoodValidator.validate(ctx.request.all())
 
-      // Use provided date or default to today
-      const entryDate = payload.entryDate ? DateTime.fromJSDate(payload.entryDate) : DateTime.now()
-
-      const mood = await Mood.create({
-        userId: user.id,
+      const mood = await moodService.create(user.id, {
         mood: payload.mood,
         intensity: payload.intensity,
-        notes: payload.notes || null,
-        photoUrl: payload.photoUrl || null,
-        entryDate: entryDate.startOf('day'),
-        tags: payload.tags || null,
-        metadata: payload.metadata || null,
+        notes: payload.notes,
+        photoUrl: payload.photoUrl,
+        entryDate: payload.entryDate,
+        tags: payload.tags,
+        metadata: payload.metadata,
       })
-
-      // Check and update achievements
-      await moodService.checkAndUpdateAchievements(user.id)
-
-      // Invalidate AI insights cache to regenerate on next request
-      await aiInsightsService.invalidateCache(user.id, 'mood')
 
       logger.info('Mood entry created', {
         userId: user.id,
         moodId: mood.id,
         mood: mood.mood,
-        entryDate: entryDate.toISODate(),
+        entryDate: mood.entryDate.toISODate(),
       })
 
-      return response.created({
-        mood: {
-          id: mood.id,
-          mood: mood.mood,
-          intensity: mood.intensity,
-          notes: mood.notes,
-          photoUrl: mood.photoUrl,
-          entryDate: mood.entryDate.toISODate(),
-          tags: mood.tags,
-          metadata: mood.metadata,
-          createdAt: mood.createdAt.toISO(),
-          updatedAt: mood.updatedAt?.toISO(),
-        },
-      })
+      return successResponse(ctx, { mood: serializeMood(mood) }, 201)
     } catch (error) {
       logger.error('Error creating mood entry', { error })
       throw error
@@ -79,58 +69,27 @@ export default class MoodController {
    * @index
    * @summary Get user's mood entries
    * @description Returns paginated list of mood entries for the authenticated user
-   * @queryParam page - Page number (optional)
-   * @queryParam limit - Items per page (optional, max 100)
-   * @queryParam startDate - Start date filter (optional)
-   * @queryParam endDate - End date filter (optional)
-   * @queryParam mood - Filter by mood type (optional)
-   * @responseBody 200 - {"data": [...], "meta": {"total": 10, "page": 1, "limit": 20}}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async index({ auth, request, response }: HttpContext) {
+  async index(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const payload = await getMoodHistoryValidator.validate(request.qs())
+      const user = ctx.auth.user!
+      const payload = await getMoodHistoryValidator.validate(ctx.request.qs())
 
-      const page = payload.page || 1
-      const limit = Math.min(payload.limit || 20, 100)
+      const result = await moodService.listForUser(user.id, {
+        page: payload.page,
+        limit: payload.limit,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+        mood: payload.mood,
+      })
 
-      const query = Mood.query()
-        .where('user_id', user.id)
-        .orderBy('entry_date', 'desc')
-        .orderBy('created_at', 'desc')
-
-      // Apply date filters if provided
-      if (payload.startDate) {
-        query.where('entry_date', '>=', DateTime.fromJSDate(payload.startDate).toISODate()!)
-      }
-      if (payload.endDate) {
-        query.where('entry_date', '<=', DateTime.fromJSDate(payload.endDate).toISODate()!)
-      }
-      if (payload.mood) {
-        query.where('mood', payload.mood)
-      }
-
-      const moods = await query.paginate(page, limit)
-
-      return response.ok({
-        data: moods.all().map((m) => ({
-          id: m.id,
-          mood: m.mood,
-          intensity: m.intensity,
-          notes: m.notes,
-          photoUrl: m.photoUrl,
-          entryDate: m.entryDate.toISODate(),
-          tags: m.tags,
-          metadata: m.metadata,
-          createdAt: m.createdAt.toISO(),
-          updatedAt: m.updatedAt?.toISO(),
-        })),
+      return successResponse(ctx, {
+        data: result.data.map(serializeMood),
         meta: {
-          total: moods.total,
-          page: moods.currentPage,
-          limit: moods.perPage,
-          lastPage: moods.lastPage,
+          total: result.total,
+          page: result.page,
+          limit: result.perPage,
+          lastPage: result.lastPage,
         },
       })
     } catch (error) {
@@ -142,30 +101,12 @@ export default class MoodController {
   /**
    * @show
    * @summary Get a specific mood entry
-   * @description Returns a specific mood entry by ID
-   * @responseBody 200 - {"mood": {...}}
-   * @responseBody 404 - {"message": "Mood entry not found"}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async show({ auth, params, response }: HttpContext) {
+  async show(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const mood = await Mood.query().where('id', params.id).where('user_id', user.id).firstOrFail()
-
-      return response.ok({
-        mood: {
-          id: mood.id,
-          mood: mood.mood,
-          intensity: mood.intensity,
-          notes: mood.notes,
-          photoUrl: mood.photoUrl,
-          entryDate: mood.entryDate.toISODate(),
-          tags: mood.tags,
-          metadata: mood.metadata,
-          createdAt: mood.createdAt.toISO(),
-          updatedAt: mood.updatedAt?.toISO(),
-        },
-      })
+      const user = ctx.auth.user!
+      const mood = await moodService.getById(user.id, Number(ctx.params.id))
+      return successResponse(ctx, { mood: serializeMood(mood) })
     } catch (error) {
       logger.error('Error fetching mood entry', { error })
       throw error
@@ -175,59 +116,23 @@ export default class MoodController {
   /**
    * @update
    * @summary Update a mood entry
-   * @description Updates an existing mood entry
-   * @requestBody {"mood": "calm", "intensity": 5, "notes": "Updated notes"}
-   * @responseBody 200 - {"mood": {...}}
-   * @responseBody 404 - {"message": "Mood entry not found"}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async update({ auth, params, request, response }: HttpContext) {
+  async update(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const payload = await updateMoodValidator.validate(request.all())
+      const user = ctx.auth.user!
+      const payload = await updateMoodValidator.validate(ctx.request.all())
 
-      const mood = await Mood.query().where('id', params.id).where('user_id', user.id).firstOrFail()
-
-      if (payload.mood) {
-        mood.mood = payload.mood
-      }
-      if (payload.intensity !== undefined) {
-        mood.intensity = payload.intensity
-      }
-      if (payload.notes !== undefined) {
-        mood.notes = payload.notes
-      }
-      if (payload.photoUrl !== undefined) {
-        mood.photoUrl = payload.photoUrl
-      }
-      if (payload.tags !== undefined) {
-        mood.tags = payload.tags
-      }
-      if (payload.metadata !== undefined) {
-        mood.metadata = payload.metadata
-      }
-
-      await mood.save()
-
-      logger.info('Mood entry updated', {
-        userId: user.id,
-        moodId: mood.id,
+      const mood = await moodService.update(user.id, Number(ctx.params.id), {
+        mood: payload.mood,
+        intensity: payload.intensity,
+        notes: payload.notes,
+        photoUrl: payload.photoUrl,
+        tags: payload.tags,
+        metadata: payload.metadata,
       })
 
-      return response.ok({
-        mood: {
-          id: mood.id,
-          mood: mood.mood,
-          intensity: mood.intensity,
-          notes: mood.notes,
-          photoUrl: mood.photoUrl,
-          entryDate: mood.entryDate.toISODate(),
-          tags: mood.tags,
-          metadata: mood.metadata,
-          createdAt: mood.createdAt.toISO(),
-          updatedAt: mood.updatedAt?.toISO(),
-        },
-      })
+      logger.info('Mood entry updated', { userId: user.id, moodId: mood.id })
+      return successResponse(ctx, { mood: serializeMood(mood) })
     } catch (error) {
       logger.error('Error updating mood entry', { error })
       throw error
@@ -237,27 +142,13 @@ export default class MoodController {
   /**
    * @destroy
    * @summary Delete a mood entry
-   * @description Deletes a mood entry
-   * @responseBody 200 - {"message": "Mood entry deleted successfully"}
-   * @responseBody 404 - {"message": "Mood entry not found"}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async destroy({ auth, params, response }: HttpContext) {
+  async destroy(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const mood = await Mood.query().where('id', params.id).where('user_id', user.id).firstOrFail()
-
-      await mood.delete()
-
-      // Recalculate achievements after deletion
-      await moodService.checkAndUpdateAchievements(user.id)
-
-      logger.info('Mood entry deleted', {
-        userId: user.id,
-        moodId: params.id,
-      })
-
-      return response.ok({ message: 'Mood entry deleted successfully' })
+      const user = ctx.auth.user!
+      await moodService.destroy(user.id, Number(ctx.params.id))
+      logger.info('Mood entry deleted', { userId: user.id, moodId: ctx.params.id })
+      return successResponse(ctx, { message: 'Mood entry deleted successfully' })
     } catch (error) {
       logger.error('Error deleting mood entry', { error })
       throw error
@@ -267,25 +158,12 @@ export default class MoodController {
   /**
    * @streak
    * @summary Get current mood tracking streak
-   * @description Returns the current consecutive days streak for mood tracking
-   * @responseBody 200 - {"streak": 12, "lastEntryDate": "2026-01-20"}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async streak({ auth, response }: HttpContext) {
+  async streak(ctx: HttpContext) {
     try {
-      const user = auth.user!
-      const streak = await moodService.calculateStreak(user.id)
-
-      // Get last entry date
-      const lastEntry = await Mood.query()
-        .where('user_id', user.id)
-        .orderBy('entry_date', 'desc')
-        .first()
-
-      return response.ok({
-        streak,
-        lastEntryDate: lastEntry?.entryDate.toISODate() || null,
-      })
+      const user = ctx.auth.user!
+      const result = await moodService.getStreak(user.id)
+      return successResponse(ctx, result)
     } catch (error) {
       logger.error('Error fetching mood streak', { error })
       throw error
@@ -295,16 +173,12 @@ export default class MoodController {
   /**
    * @insights
    * @summary Get mood insights
-   * @description Returns analytics and insights about user's mood patterns
-   * @responseBody 200 - {"totalEntries": 50, "averageIntensity": 6.5, "moodDistribution": [...], ...}
-   * @responseBody 401 - {"message": "Unauthorized"}
    */
-  async insights({ auth, response }: HttpContext) {
+  async insights(ctx: HttpContext) {
     try {
-      const user = auth.user!
+      const user = ctx.auth.user!
       const insights = await moodService.getMoodInsights(user.id)
-
-      return response.ok(insights)
+      return successResponse(ctx, insights)
     } catch (error) {
       logger.error('Error fetching mood insights', { error })
       throw error

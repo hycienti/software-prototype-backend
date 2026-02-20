@@ -28,6 +28,7 @@ const TherapistDashboardController = () => import('#controllers/therapist_dashbo
 const TherapistClientsController = () => import('#controllers/therapist_clients_controller')
 const TherapistAvailabilityController = () => import('#controllers/therapist_availability_controller')
 const TherapistWalletController = () => import('#controllers/therapist_wallet_controller')
+const TherapistDocumentsController = () => import('#controllers/therapist_documents_controller')
 const NotificationModuleController = () => import('#controllers/notification_module_controller')
 
 router.get('/', async () => ({
@@ -108,6 +109,7 @@ router
           .group(() => {
             router.get('/me', [TherapistsController, 'me'])
             router.patch('/me', [TherapistsController, 'updateMe'])
+            router.post('/documents/upload', [TherapistDocumentsController, 'upload'])
           })
           .use(middleware.auth({ guards: ['therapist'] }))
       })

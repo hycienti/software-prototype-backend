@@ -1,5 +1,8 @@
 import { DateTime } from 'luxon'
-import AvailabilitySlot from '#models/availability_slot'
+import type AvailabilitySlot from '#models/availability_slot'
+import AvailabilitySlotRepository from '#repositories/availability_slot_repository'
+
+const availabilitySlotRepository = new AvailabilitySlotRepository()
 
 /**
  * Parses "HH:mm" or "HH:mm:ss" to minutes since midnight.
@@ -42,11 +45,11 @@ export async function findMatchingSlot(
   scheduledAt: DateTime,
   durationMinutes: number
 ): Promise<AvailabilitySlot | null> {
-  const slots = await AvailabilitySlot.query()
-    .where('therapist_id', therapistId)
-    .orderBy('sort_order')
+  const slots = await availabilitySlotRepository.listByTherapistId(therapistId)
   for (const slot of slots) {
     if (slotContains(slot, scheduledAt, durationMinutes)) return slot
   }
   return null
 }
+
+export { availabilitySlotRepository }
