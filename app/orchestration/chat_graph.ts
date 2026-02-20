@@ -136,6 +136,13 @@ async function saveAssistantMessage(state: State): Promise<Partial<State>> {
     await pusherService.stream(conversation.id, 'complete', {
       messageId: assistantMessage.id,
       conversationId: conversation.id,
+      sentiment: sentiment
+        ? {
+            sentiment: sentiment.sentiment,
+            crisisIndicators: sentiment.crisisIndicators,
+            confidence: sentiment.confidence,
+          }
+        : undefined,
     })
     if (userMessage) {
       streamProgressStore.setComplete(
@@ -190,6 +197,14 @@ async function generateTitle(state: State): Promise<Partial<State>> {
   return {}
 }
 
+function startNode(state: State): string {
+  const chat = state.chat as ChatGraphState
+  if (chat?.conversation && chat?.userMessage) {
+    return 'load_history'
+  }
+  return 'resolve_conversation'
+}
+
 export function createChatGraph() {
   const builder = new StateGraph(StateAnnotation)
     .addNode('resolve_conversation', resolveConversation)
@@ -200,7 +215,7 @@ export function createChatGraph() {
     .addNode('save_assistant_message', saveAssistantMessage)
     .addNode('update_conversation', updateConversation)
     .addNode('generate_title', generateTitle)
-    .addEdge('__start__', 'resolve_conversation')
+    .addConditionalEdges('__start__', startNode)
     .addEdge('resolve_conversation', 'save_user_message')
     .addEdge('save_user_message', 'load_history')
     .addEdge('load_history', 'generate_response')
@@ -227,6 +242,13 @@ export async function runChatGraph(input: ChatGraphState): Promise<ChatGraphResu
   if (!chat.conversation || !chat.userMessage || !chat.assistantMessage || !chat.sentiment) {
     throw new Error('Chat graph did not produce required outputs')
   }
+  logger.info('Chat graph completed successfully', {
+    conversationId: chat.conversation.id,
+    userMessageId: chat.userMessage.id,
+    assistantMessageId: chat.assistantMessage.id,
+    sentiment: chat.sentiment.sentiment,
+    hasCrisisIndicators: chat.sentiment.crisisIndicators.length > 0,
+  })
   return {
     conversation: chat.conversation,
     userMessage: chat.userMessage,

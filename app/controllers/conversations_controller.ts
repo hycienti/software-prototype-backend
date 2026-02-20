@@ -1,6 +1,9 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import ConversationService from '#services/conversation_service'
 import pusherService from '#services/pusher_service'
+import { streamProgressStore } from '#services/stream_progress_store'
+import ConversationRepository from '#repositories/conversation_repository'
+import MessageRepository from '#repositories/message_repository'
 import { runChatGraph } from '#orchestration/chat_graph'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
 import {
@@ -11,6 +14,8 @@ import {
 import logger from '@adonisjs/core/services/logger'
 
 const conversationService = new ConversationService()
+const conversationRepository = new ConversationRepository()
+const messageRepository = new MessageRepository()
 
 export default class ConversationsController {
   /**
@@ -40,11 +45,42 @@ export default class ConversationsController {
         stream,
       })
 
+      const mode = (payload.mode as 'text' | 'voice') || 'text'
+
+      if (stream) {
+        const conversation = payload.conversationId
+          ? await conversationRepository.findByIdAndUserId(payload.conversationId, user.id)
+          : await conversationRepository.create({ userId: user.id, mode, title: null })
+        const userMessage = await messageRepository.create({
+          conversationId: conversation.id,
+          role: 'user',
+          content: payload.message,
+        })
+        streamProgressStore.init(conversation.id, userMessage.id)
+        await pusherService.stream(conversation.id, 'start', { messageId: userMessage.id })
+
+        runChatGraph({
+          userId: user.id,
+          conversationId: conversation.id,
+          conversation,
+          userMessage,
+          message: payload.message,
+          stream: true,
+          mode,
+        }).catch((err) => {
+          logger.error({ err, conversationId: conversation.id }, 'Chat graph (stream) failed')
+          pusherService.stream(conversation.id, 'error', { message: err?.message ?? 'Stream failed' }).catch(() => {})
+          streamProgressStore.setError(conversation.id, userMessage.id, err?.message ?? 'Stream failed')
+        })
+
+        return successResponse(ctx, { conversationId: conversation.id, userMessageId: userMessage.id, status: 'streaming' }, 202)
+      }
+
       const result = await runChatGraph({
         userId: user.id,
         message: payload.message,
-        stream,
-        mode: (payload.mode as 'text' | 'voice') || 'text',
+        stream: false,
+        mode,
         conversationId: payload.conversationId ?? undefined,
       })
 
