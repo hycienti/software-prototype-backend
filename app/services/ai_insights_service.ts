@@ -80,9 +80,13 @@ export default class AIInsightsService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const code = error && typeof error === 'object' && 'code' in error ? (error as { code?: string }).code : undefined
-      logger.error('Error getting gratitude insights', { userId, message, code, error })
-      // Return fallback insights if AI generation fails
-      return this.getFallbackGratitudeInsights(insightsData)
+      logger.warn('AI gratitude insights failed, returning fallback', { userId, message, code, error })
+      try {
+        return this.getFallbackGratitudeInsights(insightsData)
+      } catch (fallbackError) {
+        logger.warn('Fallback gratitude insights failed', { userId, error: fallbackError })
+        throw fallbackError
+      }
     }
   }
 
@@ -120,8 +124,13 @@ export default class AIInsightsService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const code = error && typeof error === 'object' && 'code' in error ? (error as { code?: string }).code : undefined
-      logger.error('Error getting mood insights', { userId, message, code, error })
-      return this.getFallbackMoodInsights(insightsData)
+      logger.warn('AI mood insights failed, returning fallback', { userId, message, code, error })
+      try {
+        return this.getFallbackMoodInsights(insightsData)
+      } catch (fallbackError) {
+        logger.warn('Fallback mood insights failed', { userId, error: fallbackError })
+        throw fallbackError
+      }
     }
   }
 

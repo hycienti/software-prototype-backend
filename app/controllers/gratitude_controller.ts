@@ -76,7 +76,7 @@ export default class GratitudeController {
 
     const file = request.file('file', {
       size: '5mb',
-      extnames: ['jpg', 'jpeg', 'png'],
+      extnames: ['jpg', 'jpeg', 'png', 'JPG', 'JPEG', 'PNG'],
     })
 
     if (!file || !file.isValid) {
@@ -86,7 +86,8 @@ export default class GratitudeController {
       return errorResponse(ctx, ErrorCodes.BAD_REQUEST, message, 400)
     }
 
-    const ext = file.extname || (file.type && file.type.split('/')[1]) || 'jpg'
+    const rawExt = file.extname || (file.type && file.type.split('/')[1]) || 'jpg'
+    const ext = rawExt.toLowerCase()
     const key = `users/${user.id}/gratitude/${randomUUID()}.${ext}`
 
     try {
@@ -253,7 +254,13 @@ export default class GratitudeController {
       return successResponse(ctx, insights)
     } catch (error) {
       logger.error('Error fetching gratitude insights', { error })
-      throw error
+      try {
+        const user = ctx.auth.user!
+        const baseInsights = await gratitudeService.getGrowthInsights(user.id, false)
+        return successResponse(ctx, baseInsights)
+      } catch (fallbackError) {
+        throw error
+      }
     }
   }
 
