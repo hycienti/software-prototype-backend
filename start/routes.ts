@@ -31,6 +31,7 @@ const TherapistWalletController = () => import('#controllers/therapist_wallet_co
 const TherapistDocumentsController = () => import('#controllers/therapist_documents_controller')
 const UserTherapistsController = () => import('#controllers/user_therapists_controller')
 const TherapistThreadsController = () => import('#controllers/therapist_threads_controller')
+const UserPaymentsController = () => import('#controllers/user_payments_controller')
 const NotificationModuleController = () => import('#controllers/notification_module_controller')
 
 router.get('/', async () => ({
@@ -222,6 +223,15 @@ router
         router.post('/:id/messages', [TherapistThreadsController, 'createMessage'])
       })
       .prefix('/therapist-threads')
+      .use(middleware.auth())
+
+    // User payments (mock payment + book session, list payments)
+    router
+      .group(() => {
+        router.post('/', [UserPaymentsController, 'store'])
+        router.get('/', [UserPaymentsController, 'index'])
+      })
+      .prefix('/payments')
       .use(middleware.auth())
 
     // Session routes
