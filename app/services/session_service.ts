@@ -75,6 +75,9 @@ export default class SessionService {
       engagementLevel?: number | null
       clinicalNotes?: string | null
       followUpAt?: string | null
+      userSummaryMainTopics?: string[] | null
+      userSummaryActionItems?: string[] | null
+      userSummaryKeyReflection?: string | null
     }
   ): Promise<Session> {
     return sessionRepository.update(session, {
@@ -84,6 +87,9 @@ export default class SessionService {
       followUpAt: payload.followUpAt ? DateTime.fromISO(payload.followUpAt) : null,
       summaryCompletedAt: DateTime.now(),
       status: SessionStatus.COMPLETED,
+      userSummaryMainTopics: payload.userSummaryMainTopics ?? null,
+      userSummaryActionItems: payload.userSummaryActionItems ?? null,
+      userSummaryKeyReflection: payload.userSummaryKeyReflection ?? null,
     })
   }
 

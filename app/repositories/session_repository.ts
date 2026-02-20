@@ -90,6 +90,9 @@ export default class SessionRepository {
       clinicalNotes?: string | null
       followUpAt?: DateTime | null
       summaryCompletedAt?: DateTime | null
+      userSummaryMainTopics?: string[] | null
+      userSummaryActionItems?: string[] | null
+      userSummaryKeyReflection?: string | null
     }
   ): Promise<Session> {
     session.merge(payload as any)

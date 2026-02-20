@@ -50,6 +50,21 @@ export default class Session extends BaseModel {
   @column.dateTime()
   declare summaryCompletedAt: DateTime | null
 
+  @column({
+    prepare: (value: string[] | null) => (value ? JSON.stringify(value) : null),
+    consume: (value: string | null) => (value ? (typeof value === 'string' ? JSON.parse(value) : value) : null),
+  })
+  declare userSummaryMainTopics: string[] | null
+
+  @column({
+    prepare: (value: string[] | null) => (value ? JSON.stringify(value) : null),
+    consume: (value: string | null) => (value ? (typeof value === 'string' ? JSON.parse(value) : value) : null),
+  })
+  declare userSummaryActionItems: string[] | null
+
+  @column()
+  declare userSummaryKeyReflection: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
