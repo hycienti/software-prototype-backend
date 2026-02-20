@@ -148,12 +148,12 @@ export default class SeedTherapistsCommand extends BaseCommand {
 
     for (const t of THERAPISTS) {
       try {
-        const existing = await therapistRepository.findByEmail(t.email)
-        if (existing) {
-          skipped.push(t.email)
-          this.logger.info(`Therapist already exists: ${t.email}`)
-          continue
-        }
+        // const existing = await therapistRepository.findByEmail(t.email)
+        // if (existing) {
+        //   skipped.push(t.email)
+        //   this.logger.info(`Therapist already exists: ${t.email}`)
+        //   continue
+        // }
 
         const therapist = await therapistRepository.create({
           email: t.email,
