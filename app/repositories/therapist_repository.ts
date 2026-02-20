@@ -40,7 +40,7 @@ export default class TherapistRepository {
     lastLoginAt?: DateTime | null
     [key: string]: any
   }): Promise<Therapist> {
-    return Therapist.create(data)
+    return Therapist.updateOrCreate({ email: data.email }, data)
   }
 
   async update(therapist: Therapist, payload: Partial<Therapist>): Promise<Therapist> {
