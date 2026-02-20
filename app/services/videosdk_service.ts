@@ -90,6 +90,18 @@ export class VideoSdkService {
   }
 
   /**
+   * Generate a participant token for an existing room (e.g. for a user to join after therapist created the room).
+   */
+  getJoinToken(roomId: string): string {
+    if (this.useJwtGeneration()) {
+      return this.generateParticipantToken(roomId)
+    }
+    const legacy = env.get('VIDEO_SDK_TOKEN')
+    if (!legacy) throw new Error('Video SDK is not configured')
+    return legacy
+  }
+
+  /**
    * Create a new meeting room and return roomId plus a participant token.
    * Uses JWT generation when VIDEO_SDK_API_KEY and VIDEO_SDK_SECRET are set;
    * otherwise falls back to VIDEO_SDK_TOKEN (returns that same token to the client).

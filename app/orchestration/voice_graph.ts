@@ -99,7 +99,7 @@ async function generateResponse(state: State): Promise<Partial<State>> {
   if (!chatMessages) throw new Error('chatMessages required')
   const aiResponse = await openaiService.generateResponse({
     messages: chatMessages,
-    temperature: 0.7,
+    temperature: 1,
     maxTokens: 500,
   })
   return { voice: { aiResponse } }

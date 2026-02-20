@@ -9,6 +9,28 @@ export default class TherapistRepository {
     return Therapist.findBy('email', email)
   }
 
+  async list(options: {
+    page: number
+    limit: number
+    search?: string
+  }): Promise<{ data: Therapist[]; total: number }> {
+    const q = Therapist.query().orderBy('fullName', 'asc')
+    if (options.search?.trim()) {
+      const term = `%${options.search.trim()}%`
+      q.where((builder) => {
+        builder
+          .whereRaw('LOWER(full_name) LIKE ?', [term.toLowerCase()])
+          .orWhereRaw('LOWER(professional_title) LIKE ?', [term.toLowerCase()])
+      })
+    }
+    const total = await q.clone().count('* as total').first()
+    const totalCount = Number(total?.$extras?.total ?? 0)
+    const data = await q
+      .offset((options.page - 1) * options.limit)
+      .limit(options.limit)
+    return { data, total: totalCount }
+  }
+
   async create(data: {
     email: string
     fullName?: string | null

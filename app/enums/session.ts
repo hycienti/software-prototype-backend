@@ -9,3 +9,9 @@ export enum SessionSentiment {
   NEUTRAL = 'neutral',
   NEGATIVE = 'negative',
 }
+
+export enum FeedbackSentimentAfter {
+  BETTER = 'better',
+  SAME = 'same',
+  WORSE = 'worse',
+}

@@ -51,6 +51,11 @@ async function saveUserMessage(state: State): Promise<Partial<State>> {
     content: message,
     metadata: null,
   })
+  logger.info('User message saved, awaiting agent response', {
+    conversationId: conversation.id,
+    userMessageId: userMessage.id,
+    stream,
+  })
   if (stream) {
     streamProgressStore.init(conversation.id, userMessage.id)
   }
@@ -89,8 +94,8 @@ async function generateResponse(state: State): Promise<Partial<State>> {
     try {
       for await (const chunk of openaiService.generateStreamingResponse({
         messages: chatMessages,
-        temperature: 0.7,
-        maxTokens: 1000,
+        temperature: 1,
+        maxTokens: 2000,
       })) {
         aiResponse += chunk
         await pusherService.stream(conversation.id, 'chunk', { content: chunk })
@@ -106,8 +111,8 @@ async function generateResponse(state: State): Promise<Partial<State>> {
     await pusherService.stream(conversation.id, 'typing', { isTyping: true })
     aiResponse = await openaiService.generateResponse({
       messages: chatMessages,
-      temperature: 0.7,
-      maxTokens: 1000,
+      temperature: 1,
+      maxTokens: 2000,
     })
     await pusherService.stream(conversation.id, 'typing', { isTyping: false })
   }
@@ -173,7 +178,7 @@ async function generateTitle(state: State): Promise<Partial<State>> {
     const titlePrompt = getConversationTitlePrompt(message)
     const titleResponse = await openaiService.generateResponse({
       messages: [{ role: 'user', content: titlePrompt }],
-      temperature: 0.5,
+      temperature: 1,
       maxTokens: 50,
     })
     await conversationRepository.update(conversation, {
@@ -198,9 +203,9 @@ export function createChatGraph() {
     .addEdge('__start__', 'resolve_conversation')
     .addEdge('resolve_conversation', 'save_user_message')
     .addEdge('save_user_message', 'load_history')
-    .addEdge('load_history', 'analyze_sentiment')
-    .addEdge('analyze_sentiment', 'generate_response')
-    .addEdge('generate_response', 'save_assistant_message')
+    .addEdge('load_history', 'generate_response')
+    .addEdge('generate_response', 'analyze_sentiment')
+    .addEdge('analyze_sentiment', 'save_assistant_message')
     .addEdge('save_assistant_message', 'update_conversation')
     .addEdge('update_conversation', 'generate_title')
     .addEdge('generate_title', '__end__')

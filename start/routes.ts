@@ -29,6 +29,8 @@ const TherapistClientsController = () => import('#controllers/therapist_clients_
 const TherapistAvailabilityController = () => import('#controllers/therapist_availability_controller')
 const TherapistWalletController = () => import('#controllers/therapist_wallet_controller')
 const TherapistDocumentsController = () => import('#controllers/therapist_documents_controller')
+const UserTherapistsController = () => import('#controllers/user_therapists_controller')
+const TherapistThreadsController = () => import('#controllers/therapist_threads_controller')
 const NotificationModuleController = () => import('#controllers/notification_module_controller')
 
 router.get('/', async () => ({
@@ -202,6 +204,25 @@ router
       .prefix('/achievements')
       .use(middleware.auth())
 
+    // User-facing therapists (list and detail; api auth only)
+    router
+      .group(() => {
+        router.get('/', [UserTherapistsController, 'index'])
+        router.get('/:id', [UserTherapistsController, 'show'])
+      })
+      .prefix('/therapists')
+      .use(middleware.auth())
+
+    // Therapist–user messaging (user auth)
+    router
+      .group(() => {
+        router.get('/', [TherapistThreadsController, 'index'])
+        router.get('/:id', [TherapistThreadsController, 'show'])
+        router.post('/:id/messages', [TherapistThreadsController, 'createMessage'])
+      })
+      .prefix('/therapist-threads')
+      .use(middleware.auth())
+
     // Session routes
     router
       .group(() => {
@@ -209,6 +230,9 @@ router
         router
           .get('/', [SessionsController, 'index'])
           .use(middleware.auth({ guards: ['api', 'therapist'] }))
+        router
+          .get('/:id/join-room', [SessionsController, 'joinRoom'])
+          .use(middleware.auth())
         router
           .get('/:id', [SessionsController, 'show'])
           .use(middleware.auth({ guards: ['api', 'therapist'] }))
@@ -221,6 +245,9 @@ router
         router
           .patch('/:id/summary', [SessionsController, 'submitSummary'])
           .use(middleware.auth({ guards: ['therapist'] }))
+        router
+          .post('/:id/feedback', [SessionsController, 'submitFeedback'])
+          .use(middleware.auth())
       })
       .prefix('/sessions')
 
