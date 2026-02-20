@@ -42,7 +42,9 @@ export default class SessionService {
     therapistId: number
     scheduledAt: DateTime
     durationMinutes: number
-  }): Promise<{ session: Session } | { error: 'THERAPIST_NOT_FOUND' | 'NO_SLOT' }> {
+  }): Promise<
+    { session: Session } | { error: 'THERAPIST_NOT_FOUND' | 'NO_SLOT' | 'SLOT_ALREADY_BOOKED' }
+  > {
     const therapist = await therapistRepository.findById(data.therapistId)
     if (!therapist) return { error: 'THERAPIST_NOT_FOUND' }
 
@@ -52,6 +54,13 @@ export default class SessionService {
       data.durationMinutes
     )
     if (!slot) return { error: 'NO_SLOT' }
+
+    const overlapping = await sessionRepository.findOverlappingSession(
+      data.therapistId,
+      data.scheduledAt,
+      data.durationMinutes
+    )
+    if (overlapping) return { error: 'SLOT_ALREADY_BOOKED' }
 
     const session = await sessionRepository.create({
       userId: data.userId,
@@ -66,6 +75,10 @@ export default class SessionService {
 
   async updateMeetingId(session: Session, meetingId: string): Promise<Session> {
     return sessionRepository.update(session, { meetingId })
+  }
+
+  async cancel(session: Session): Promise<Session> {
+    return sessionRepository.update(session, { status: SessionStatus.CANCELLED })
   }
 
   async submitSummary(

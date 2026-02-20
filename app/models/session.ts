@@ -1,9 +1,10 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasOne } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasOne } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Therapist from '#models/therapist'
 import AvailabilitySlot from '#models/availability_slot'
+import TherapistThread from '#models/therapist_thread'
 import { SessionStatus, SessionSentiment } from '#enums/session'
 
 export default class Session extends BaseModel {
@@ -79,4 +80,7 @@ export default class Session extends BaseModel {
 
   @belongsTo(() => AvailabilitySlot)
   declare availabilitySlot: BelongsTo<typeof AvailabilitySlot>
+
+  @hasOne(() => TherapistThread)
+  declare therapistThread: HasOne<typeof TherapistThread>
 }
