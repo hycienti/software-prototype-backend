@@ -20,3 +20,10 @@ export const deleteConversationValidator = vine.compile(
     conversationId: vine.number().positive(),
   })
 )
+
+export const streamStatusValidator = vine.compile(
+  vine.object({
+    conversationId: vine.number().positive(),
+    userMessageId: vine.number().positive(),
+  })
+)
