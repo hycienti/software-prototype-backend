@@ -120,10 +120,25 @@ export default class OpenAIService {
 
       if (!content || !content.trim()) {
         const choice = completion.choices[0]
+        const finishReason = choice?.finish_reason
         const msg = choice?.message as { refusal?: string } | undefined
+        if (finishReason === 'length') {
+          logger.warn(
+            {
+              ...LOG_CONTEXT,
+              method,
+              model: this.model,
+              finishReason,
+              choiceIndex: choice?.index,
+              usage: completion.usage,
+            },
+            'Empty response (token limit); returning fallback message'
+          )
+          return "I wasn't able to finish that thought. Please try again or rephrase."
+        }
         logError(method, new Error('Empty response'), {
           model: this.model,
-          finishReason: choice?.finish_reason,
+          finishReason,
           choiceIndex: choice?.index,
           usage: completion.usage,
           rawContentType: typeof rawContent,
