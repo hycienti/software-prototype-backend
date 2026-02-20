@@ -18,6 +18,16 @@ export default class TherapistThreadMessage extends BaseModel {
   @column()
   declare body: string
 
+  @column()
+  declare voiceUrl: string | null
+
+  @column({
+    prepare: (value: string[] | null) => (value ? JSON.stringify(value) : null),
+    consume: (value: string | null) =>
+      value ? (typeof value === 'string' ? JSON.parse(value) : value) : null,
+  })
+  declare attachmentUrls: string[] | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

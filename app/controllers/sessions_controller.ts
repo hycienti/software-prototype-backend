@@ -37,7 +37,12 @@ function serializeSession(s: Session, options?: { includeUserTakeaways?: boolean
       ? { id: s.user.id, fullName: s.user.fullName, email: s.user.email, avatarUrl: s.user.avatarUrl }
       : undefined,
     therapist: s.therapist
-      ? { id: s.therapist.id, fullName: s.therapist.fullName, professionalTitle: s.therapist.professionalTitle }
+      ? {
+          id: s.therapist.id,
+          fullName: s.therapist.fullName,
+          professionalTitle: s.therapist.professionalTitle,
+          profilePhotoUrl: s.therapist.profilePhotoUrl ?? null,
+        }
       : undefined,
   }
   if (options?.includeUserTakeaways) {

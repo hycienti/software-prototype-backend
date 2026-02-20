@@ -1,12 +1,14 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import UserPayment from '#models/user_payment'
 import SessionService from '#services/session_service'
+import TherapistWalletService from '#services/therapist_wallet_service'
 import { createPaymentValidator } from '#validators/payment_validator'
 import { paginationValidator, defaultListParams, DEFAULT_LIMIT, MAX_LIMIT } from '#validators/list_validator'
 import { DateTime } from 'luxon'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
 
 const sessionService = new SessionService()
+const therapistWalletService = new TherapistWalletService()
 
 function serializePayment(p: UserPayment, options?: { includeTherapist?: boolean }) {
   const out: Record<string, unknown> = {
@@ -72,6 +74,13 @@ export default class UserPaymentsController {
       sessionId: session.id,
       therapistId: payload.therapistId,
     })
+
+    await therapistWalletService.creditFromSession(
+      payload.therapistId,
+      payload.amountCents,
+      session.id,
+      `Session #${session.id} payment`
+    )
 
     return successResponse(
       ctx,

@@ -18,6 +18,30 @@ export default class TherapistWalletService {
     return wallet
   }
 
+  /**
+   * Credit the therapist's wallet for a session payment (mock payment flow).
+   * Creates a session_payment transaction and increases balance.
+   */
+  async creditFromSession(
+    therapistId: number,
+    amountCents: number,
+    sessionId: number,
+    description: string | null = null
+  ): Promise<TherapistWallet> {
+    const wallet = await this.getOrCreateWallet(therapistId)
+    const newBalanceCents = wallet.balanceCents + amountCents
+    await transactionRepo.create({
+      therapistId,
+      amountCents,
+      type: 'session_payment',
+      description: description ?? `Session #${sessionId} payment`,
+      sessionId,
+      withdrawalId: null,
+    })
+    await walletRepo.updateBalance(wallet, newBalanceCents)
+    return wallet
+  }
+
   async getWalletWithTransactionsAndWithdrawals(
     therapistId: number,
     options: {

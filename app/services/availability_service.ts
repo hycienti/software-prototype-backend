@@ -5,6 +5,13 @@ import AvailabilitySlotRepository from '#repositories/availability_slot_reposito
 const availabilitySlotRepository = new AvailabilitySlotRepository()
 
 /**
+ * Slot matching uses scheduledAt as a Luxon DateTime (from ISO string, typically UTC).
+ * Recurring slot days: 0 = Sunday, 1 = Monday, ..., 6 = Saturday (Luxon weekday % 7).
+ * For consistent matching, clients should send scheduledAt in ISO format; the day and
+ * time window are evaluated in the same timezone as the DateTime (UTC if ISO has Z).
+ */
+
+/**
  * Parses "HH:mm" or "HH:mm:ss" to minutes since midnight.
  */
 function timeToMinutes(s: string): number {
