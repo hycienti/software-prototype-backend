@@ -172,6 +172,14 @@ export default class SessionsController {
       if (result.error === 'THERAPIST_NOT_FOUND') {
         return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Therapist not found', 404)
       }
+      if (result.error === 'SLOT_ALREADY_BOOKED') {
+        return errorResponse(
+          ctx,
+          ErrorCodes.BAD_REQUEST,
+          'This time slot is no longer available. Please choose another.',
+          409
+        )
+      }
       return errorResponse(
         ctx,
         ErrorCodes.BAD_REQUEST,
@@ -348,5 +356,38 @@ export default class SessionsController {
       },
       201
     )
+  }
+
+  /**
+   * @cancel
+   * @summary Cancel a scheduled session (User or Therapist). Session must be scheduled. Frees the slot for rebooking.
+   * @tag Sessions
+   */
+  async cancel(ctx: HttpContext) {
+    const sessionId = Number(ctx.params.id)
+    if (Number.isNaN(sessionId)) {
+      return errorResponse(ctx, ErrorCodes.BAD_REQUEST, 'Invalid session id', 400)
+    }
+    let session: Session | null = null
+    if (ctx.auth.use('api').isAuthenticated) {
+      const user = ctx.auth.use('api').user!
+      session = await sessionService.findByIdAndUserId(sessionId, user.id)
+    } else if (ctx.auth.use('therapist').isAuthenticated) {
+      const therapist = ctx.auth.use('therapist').user!
+      session = await sessionService.findByIdAndTherapistId(sessionId, therapist.id)
+    }
+    if (!session) {
+      return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Session not found', 404)
+    }
+    if (session.status !== SessionStatus.SCHEDULED) {
+      return errorResponse(
+        ctx,
+        ErrorCodes.BAD_REQUEST,
+        'Only scheduled sessions can be cancelled',
+        400
+      )
+    }
+    const updated = await sessionService.cancel(session)
+    return successResponse(ctx, { session: serializeSession(updated) })
   }
 }

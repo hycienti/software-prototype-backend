@@ -31,6 +31,8 @@ const TherapistWalletController = () => import('#controllers/therapist_wallet_co
 const TherapistDocumentsController = () => import('#controllers/therapist_documents_controller')
 const UserTherapistsController = () => import('#controllers/user_therapists_controller')
 const TherapistThreadsController = () => import('#controllers/therapist_threads_controller')
+const TherapistThreadsTherapistController = () =>
+  import('#controllers/therapist_threads_therapist_controller')
 const UserPaymentsController = () => import('#controllers/user_payments_controller')
 const NotificationModuleController = () => import('#controllers/notification_module_controller')
 
@@ -131,6 +133,11 @@ router
         router.patch('/notifications/mark-all-read', [TherapistNotificationsController, 'markAllAsRead'])
         router.patch('/notifications/:id', [TherapistNotificationsController, 'update'])
         router.delete('/notifications/:id', [TherapistNotificationsController, 'destroy'])
+        // Therapist–client chat (threads)
+        router.get('/threads', [TherapistThreadsTherapistController, 'index'])
+        router.post('/threads/upload', [TherapistThreadsTherapistController, 'upload'])
+        router.get('/threads/:id', [TherapistThreadsTherapistController, 'show'])
+        router.post('/threads/:id/messages', [TherapistThreadsTherapistController, 'createMessage'])
       })
       .prefix('/therapist')
       .use(middleware.auth({ guards: ['therapist'] }))
@@ -210,6 +217,7 @@ router
     router
       .group(() => {
         router.get('/', [UserTherapistsController, 'index'])
+        router.get('/:id/bookable-slots', [UserTherapistsController, 'bookableSlots'])
         router.get('/:id', [UserTherapistsController, 'show'])
       })
       .prefix('/therapists')
@@ -260,6 +268,9 @@ router
         router
           .post('/:id/feedback', [SessionsController, 'submitFeedback'])
           .use(middleware.auth())
+        router
+          .patch('/:id/cancel', [SessionsController, 'cancel'])
+          .use(middleware.auth({ guards: ['api', 'therapist'] }))
       })
       .prefix('/sessions')
 

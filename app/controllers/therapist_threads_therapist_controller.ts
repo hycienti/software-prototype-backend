@@ -2,7 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import drive from '@adonisjs/drive/services/main'
 import TherapistThread from '#models/therapist_thread'
 import TherapistThreadMessage from '#models/therapist_thread_message'
-import Therapist from '#models/therapist'
+import User from '#models/user'
 import SessionService from '#services/session_service'
 import { sendTherapistThreadMessageValidator } from '#validators/therapist_thread_validator'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
@@ -10,12 +10,12 @@ import { getPublicFileUrl } from '#utils/drive_helper'
 
 const sessionService = new SessionService()
 
-/** Serialize therapist for thread list/detail (safe fields only) */
-function serializeTherapist(t: Therapist) {
+/** Serialize user (client) for thread list/detail when accessed by therapist */
+function serializeUser(u: User) {
   return {
-    id: t.id,
-    fullName: t.fullName,
-    professionalTitle: t.professionalTitle,
+    id: u.id,
+    fullName: u.fullName,
+    avatarUrl: u.avatarUrl ?? null,
   }
 }
 
@@ -31,31 +31,39 @@ function serializeMessage(m: TherapistThreadMessage) {
   }
 }
 
-export default class TherapistThreadsController {
+/**
+ * Therapist-authenticated thread endpoints.
+ * GET /therapist/threads — list threads for current therapist (with user + last message).
+ * GET /therapist/threads?userId= — get or create thread with that user; return thread + messages.
+ * GET /therapist/threads/:id — get thread by id; return thread + messages.
+ * POST /therapist/threads/upload — upload file; thread must belong to therapist.
+ * POST /therapist/threads/:id/messages — send message as therapist.
+ */
+export default class TherapistThreadsTherapistController {
   /**
-   * GET /therapist-threads — list threads for current user (with therapist + last message).
-   * GET /therapist-threads?sessionId= — get or create thread for that session, return thread + messages (paginated). Preferred for session-scoped chat.
-   * GET /therapist-threads?therapistId= — get or create legacy thread with that therapist (no session), return thread + messages (paginated).
+   * GET /therapist/threads — list threads for current therapist.
+   * GET /therapist/threads?sessionId= — get or create thread for that session (session must be for this therapist), return thread + messages.
+   * GET /therapist/threads?userId= — get or create legacy thread with that user, return thread + messages.
    */
   async index(ctx: HttpContext) {
-    const user = ctx.auth.use('api').user
-    if (!user) {
+    const therapist = ctx.auth.use('therapist').user
+    if (!therapist) {
       return errorResponse(ctx, ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
 
     const sessionIdParam = ctx.request.input('sessionId')
     if (sessionIdParam != null && sessionIdParam !== '') {
-      return this.getOrCreateBySessionId(ctx, user.id, sessionIdParam)
+      return this.getOrCreateBySessionId(ctx, therapist.id, sessionIdParam)
     }
 
-    const therapistIdParam = ctx.request.input('therapistId')
-    if (therapistIdParam != null && therapistIdParam !== '') {
-      return this.getOrCreateByTherapistId(ctx, user.id, therapistIdParam)
+    const userIdParam = ctx.request.input('userId')
+    if (userIdParam != null && userIdParam !== '') {
+      return this.getOrCreateByUserId(ctx, therapist.id, userIdParam)
     }
 
     const threads = await TherapistThread.query()
-      .where('user_id', user.id)
-      .preload('therapist')
+      .where('therapist_id', therapist.id)
+      .preload('user')
       .preload('session')
       .preload('messages', (q) => q.orderBy('created_at', 'desc').limit(1))
       .orderBy('updated_at', 'desc')
@@ -70,7 +78,7 @@ export default class TherapistThreadsController {
         session: t.session
           ? { id: t.session.id, scheduledAt: t.session.scheduledAt.toISO(), status: t.session.status }
           : undefined,
-        therapist: t.therapist ? serializeTherapist(t.therapist) : null,
+        user: t.user ? serializeUser(t.user) : null,
         lastMessage: lastMsg ? serializeMessage(lastMsg) : null,
         createdAt: t.createdAt.toISO(),
         updatedAt: t.updatedAt.toISO(),
@@ -80,27 +88,31 @@ export default class TherapistThreadsController {
     return successResponse(ctx, { threads: list })
   }
 
-  private async getOrCreateBySessionId(ctx: HttpContext, userId: number, sessionIdParam: string) {
+  private async getOrCreateBySessionId(ctx: HttpContext, therapistId: number, sessionIdParam: string) {
     const sessionId = Number(sessionIdParam)
     if (Number.isNaN(sessionId)) {
       return errorResponse(ctx, ErrorCodes.BAD_REQUEST, 'Invalid sessionId', 400)
     }
-    const session = await sessionService.findByIdAndUserId(sessionId, userId)
+    const session = await sessionService.findByIdAndTherapistId(sessionId, therapistId)
     if (!session) {
       return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Session not found', 404)
     }
+    const userId = session.userId ?? 0
+    if (!userId) {
+      return errorResponse(ctx, ErrorCodes.BAD_REQUEST, 'Session has no user', 400)
+    }
     let thread = await TherapistThread.query()
       .where('session_id', sessionId)
-      .preload('therapist')
+      .preload('user')
       .preload('session')
       .first()
     if (!thread) {
       thread = await TherapistThread.create({
         userId,
-        therapistId: session.therapistId,
+        therapistId,
         sessionId: session.id,
       })
-      await thread.load('therapist')
+      await thread.load('user')
       await thread.load('session')
     }
     const page = Math.max(1, Number(ctx.request.input('page', 1)))
@@ -124,7 +136,7 @@ export default class TherapistThreadsController {
         session: thread.session
           ? { id: thread.session.id, scheduledAt: thread.session.scheduledAt.toISO(), status: thread.session.status }
           : undefined,
-        therapist: thread.therapist ? serializeTherapist(thread.therapist) : null,
+        user: thread.user ? serializeUser(thread.user) : null,
         createdAt: thread.createdAt.toISO(),
         updatedAt: thread.updatedAt.toISO(),
       },
@@ -133,25 +145,25 @@ export default class TherapistThreadsController {
     })
   }
 
-  private async getOrCreateByTherapistId(ctx: HttpContext, userId: number, therapistIdParam: string) {
-    const therapistId = Number(therapistIdParam)
-    if (Number.isNaN(therapistId)) {
-      return errorResponse(ctx, ErrorCodes.BAD_REQUEST, 'Invalid therapistId', 400)
+  private async getOrCreateByUserId(ctx: HttpContext, therapistId: number, userIdParam: string) {
+    const userId = Number(userIdParam)
+    if (Number.isNaN(userId)) {
+      return errorResponse(ctx, ErrorCodes.BAD_REQUEST, 'Invalid userId', 400)
     }
     let thread = await TherapistThread.query()
-      .where('user_id', userId)
       .where('therapist_id', therapistId)
+      .where('user_id', userId)
       .whereNull('session_id')
-      .preload('therapist')
+      .preload('user')
       .preload('session')
       .first()
     if (!thread) {
-      const therapist = await Therapist.find(therapistId)
-      if (!therapist) {
-        return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Therapist not found', 404)
+      const user = await User.find(userId)
+      if (!user) {
+        return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'User not found', 404)
       }
       thread = await TherapistThread.create({ userId, therapistId })
-      await thread.load('therapist')
+      await thread.load('user')
       await thread.load('session')
     }
     const page = Math.max(1, Number(ctx.request.input('page', 1)))
@@ -175,7 +187,7 @@ export default class TherapistThreadsController {
         session: thread.session
           ? { id: thread.session.id, scheduledAt: thread.session.scheduledAt.toISO(), status: thread.session.status }
           : undefined,
-        therapist: thread.therapist ? serializeTherapist(thread.therapist) : null,
+        user: thread.user ? serializeUser(thread.user) : null,
         createdAt: thread.createdAt.toISO(),
         updatedAt: thread.updatedAt.toISO(),
       },
@@ -185,11 +197,11 @@ export default class TherapistThreadsController {
   }
 
   /**
-   * GET /therapist-threads/:id — get thread by id, return messages (paginated)
+   * GET /therapist/threads/:id — get thread by id (must belong to current therapist).
    */
   async show(ctx: HttpContext) {
-    const user = ctx.auth.use('api').user
-    if (!user) {
+    const therapist = ctx.auth.use('therapist').user
+    if (!therapist) {
       return errorResponse(ctx, ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
 
@@ -200,8 +212,8 @@ export default class TherapistThreadsController {
 
     const thread = await TherapistThread.query()
       .where('id', id)
-      .where('user_id', user.id)
-      .preload('therapist')
+      .where('therapist_id', therapist.id)
+      .preload('user')
       .preload('session')
       .first()
     if (!thread) {
@@ -230,7 +242,7 @@ export default class TherapistThreadsController {
         session: thread.session
           ? { id: thread.session.id, scheduledAt: thread.session.scheduledAt.toISO(), status: thread.session.status }
           : undefined,
-        therapist: thread.therapist ? serializeTherapist(thread.therapist) : null,
+        user: thread.user ? serializeUser(thread.user) : null,
         createdAt: thread.createdAt.toISO(),
         updatedAt: thread.updatedAt.toISO(),
       },
@@ -240,12 +252,11 @@ export default class TherapistThreadsController {
   }
 
   /**
-   * POST /therapist-threads/upload — upload file for chat (voice or attachment). Returns { url }.
-   * Multipart: file (required), threadId (required). User must own the thread.
+   * POST /therapist/threads/upload — upload file for chat. Thread must belong to current therapist.
    */
   async upload(ctx: HttpContext) {
-    const user = ctx.auth.use('api').user
-    if (!user) {
+    const therapist = ctx.auth.use('therapist').user
+    if (!therapist) {
       return errorResponse(ctx, ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
     const threadId = Number(ctx.request.body().threadId ?? ctx.request.input('threadId'))
@@ -254,7 +265,7 @@ export default class TherapistThreadsController {
     }
     const thread = await TherapistThread.query()
       .where('id', threadId)
-      .where('user_id', user.id)
+      .where('therapist_id', therapist.id)
       .first()
     if (!thread) {
       return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Thread not found', 404)
@@ -278,7 +289,7 @@ export default class TherapistThreadsController {
       const lastDot = name.lastIndexOf('.')
       return lastDot > 0 ? name.slice(0, lastDot) : name
     })()
-    const key = `chat/${user.id}/${thread.id}/${Date.now()}-${baseName}.${ext}`.replace(/\s+/g, '-')
+    const key = `chat/${thread.userId}/${thread.id}/${Date.now()}-${baseName}.${ext}`.replace(/\s+/g, '-')
     try {
       const disk = drive.use()
       await disk.copyFromFs(file.tmpPath!, key, {
@@ -308,11 +319,11 @@ export default class TherapistThreadsController {
   }
 
   /**
-   * POST /therapist-threads/:id/messages — send a message (user auth)
+   * POST /therapist/threads/:id/messages — send message as therapist.
    */
   async createMessage(ctx: HttpContext) {
-    const user = ctx.auth.use('api').user
-    if (!user) {
+    const therapist = ctx.auth.use('therapist').user
+    if (!therapist) {
       return errorResponse(ctx, ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
 
@@ -323,7 +334,7 @@ export default class TherapistThreadsController {
 
     const thread = await TherapistThread.query()
       .where('id', id)
-      .where('user_id', user.id)
+      .where('therapist_id', therapist.id)
       .first()
     if (!thread) {
       return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Thread not found', 404)
@@ -346,7 +357,7 @@ export default class TherapistThreadsController {
     }
     const message = await TherapistThreadMessage.create({
       threadId: thread.id,
-      senderType: 'user',
+      senderType: 'therapist',
       body: payload.body?.trim() ?? '',
       voiceUrl: payload.voiceUrl?.trim() || null,
       attachmentUrls: payload.attachmentUrls?.length ? payload.attachmentUrls : null,

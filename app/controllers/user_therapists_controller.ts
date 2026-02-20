@@ -1,6 +1,8 @@
+import { DateTime } from 'luxon'
 import type { HttpContext } from '@adonisjs/core/http'
 import type Therapist from '#models/therapist'
 import TherapistRepository from '#repositories/therapist_repository'
+import { getBookableSlots } from '#services/availability_service'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
 
 const therapistRepository = new TherapistRepository()
@@ -34,6 +36,28 @@ export default class UserTherapistsController {
       therapists: data.map(serializeTherapistForUser),
       meta: { page, limit, total },
     })
+  }
+
+  /**
+   * GET /api/v1/therapists/:id/bookable-slots — available (date, time) slots for booking.
+   * Query: from=YYYY-MM-DD, to=YYYY-MM-DD (default: next 14 days). Times in UTC.
+   */
+  async bookableSlots(ctx: HttpContext) {
+    const id = Number(ctx.params.id)
+    if (Number.isNaN(id)) {
+      return errorResponse(ctx, ErrorCodes.BAD_REQUEST, 'Invalid therapist id', 400)
+    }
+    const therapist = await therapistRepository.findById(id)
+    if (!therapist) {
+      return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Therapist not found', 404)
+    }
+    const now = DateTime.utc()
+    const defaultFrom = now.startOf('day').toISODate()!
+    const defaultTo = now.plus({ days: 13 }).endOf('day').toISODate()!.slice(0, 10)
+    const from = (ctx.request.input('from') as string) || defaultFrom
+    const to = (ctx.request.input('to') as string) || defaultTo
+    const dates = await getBookableSlots(id, from, to, 50)
+    return successResponse(ctx, { dates })
   }
 
   /**

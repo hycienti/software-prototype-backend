@@ -148,4 +148,40 @@ export default class SessionRepository {
       .orderBy('scheduled_at', 'asc')
       .first()
   }
+
+  /**
+   * Find a non-cancelled session for the therapist that overlaps the given time window.
+   * Used to prevent double-booking: [scheduledAt, scheduledAt + durationMinutes).
+   */
+  async findOverlappingSession(
+    therapistId: number,
+    scheduledAt: DateTime,
+    durationMinutes: number
+  ): Promise<Session | null> {
+    const requestedStart = scheduledAt.toSQL()!
+    const requestedEnd = scheduledAt.plus({ minutes: durationMinutes }).toSQL()!
+    return Session.query()
+      .where('therapist_id', therapistId)
+      .whereNot('status', SessionStatus.CANCELLED)
+      .where('scheduled_at', '<', requestedEnd)
+      .whereRaw(
+        "scheduled_at + (duration_minutes || ' minutes')::interval > ?",
+        [requestedStart]
+      )
+      .first()
+  }
+
+  /** List non-cancelled sessions for a therapist in a date range (for bookable-slots). */
+  async listNonCancelledByTherapistBetween(
+    therapistId: number,
+    from: DateTime,
+    to: DateTime
+  ): Promise<Session[]> {
+    return Session.query()
+      .where('therapist_id', therapistId)
+      .whereNot('status', SessionStatus.CANCELLED)
+      .where('scheduled_at', '>=', from.startOf('day').toSQL()!)
+      .where('scheduled_at', '<=', to.endOf('day').toSQL()!)
+      .orderBy('scheduled_at', 'asc')
+  }
 }

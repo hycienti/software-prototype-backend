@@ -57,6 +57,14 @@ export default class UserPaymentsController {
       if (result.error === 'THERAPIST_NOT_FOUND') {
         return errorResponse(ctx, ErrorCodes.NOT_FOUND, 'Therapist not found', 404)
       }
+      if (result.error === 'SLOT_ALREADY_BOOKED') {
+        return errorResponse(
+          ctx,
+          ErrorCodes.BAD_REQUEST,
+          'This time slot is no longer available. Please choose another.',
+          409
+        )
+      }
       return errorResponse(
         ctx,
         ErrorCodes.BAD_REQUEST,
