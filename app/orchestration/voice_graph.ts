@@ -49,8 +49,15 @@ async function resolveConversation(state: State): Promise<Partial<State>> {
   return { voice: { conversation } }
 }
 
-async function speechToText(state: State): Promise<Partial<State>> {
-  const { audioData, language } = state.voice as VoiceGraphState
+/** Resolve transcript: use client-provided transcript or run ElevenLabs STT on audioData. */
+async function getTranscript(state: State): Promise<Partial<State>> {
+  const { transcript: existingTranscript, audioData, language } = state.voice as VoiceGraphState
+  if (existingTranscript != null && existingTranscript.trim().length > 0) {
+    return {}
+  }
+  if (audioData == null || audioData.length === 0) {
+    throw new Error('Either transcript or audioData is required.')
+  }
   const audioBuffer = Buffer.from(audioData, 'base64')
   const transcript = await elevenlabsService.speechToText({
     audioData: audioBuffer,
@@ -126,18 +133,6 @@ async function saveAssistantMessage(state: State): Promise<Partial<State>> {
   return { voice: { assistantMessage } }
 }
 
-async function textToSpeech(state: State): Promise<Partial<State>> {
-  const { aiResponse } = state.voice as VoiceGraphState
-  if (!aiResponse) throw new Error('aiResponse required')
-  const responseAudioBuffer = await elevenlabsService.textToSpeech({
-    text: aiResponse,
-    stability: 0.5,
-    similarityBoost: 0.75,
-  })
-  const audioBase64 = responseAudioBuffer.toString('base64')
-  return { voice: { audioBase64 } }
-}
-
 async function updateConversation(state: State): Promise<Partial<State>> {
   const { conversation, sentiment } = state.voice as VoiceGraphState
   if (!conversation) return {}
@@ -157,7 +152,7 @@ function getResolveConversationMeta(result: Partial<State>): GraphLogMeta {
   return id !== undefined ? { conversationId: id } : {}
 }
 
-function getSpeechToTextMeta(result: Partial<State>): GraphLogMeta {
+function getGetTranscriptMeta(result: Partial<State>): GraphLogMeta {
   const transcript = (result.voice as VoiceGraphState)?.transcript
   return transcript !== undefined
     ? { transcriptLength: transcript.length, transcriptPreview: transcript.slice(0, 80) }
@@ -194,11 +189,6 @@ function getSaveAssistantMessageMeta(result: Partial<State>): GraphLogMeta {
   return msg?.id !== undefined ? { assistantMessageId: msg.id } : {}
 }
 
-function getTextToSpeechMeta(result: Partial<State>): GraphLogMeta {
-  const audio = (result.voice as VoiceGraphState)?.audioBase64
-  return audio !== undefined ? { audioBase64Length: audio.length } : {}
-}
-
 function getUpdateConversationMeta(_result: Partial<State>): GraphLogMeta {
   return { updated: true }
 }
@@ -215,12 +205,12 @@ export function createVoiceGraph() {
       )
     )
     .addNode(
-      'speech_to_text',
+      'get_transcript',
       withGraphNodeLogger(
         VOICE_GRAPH_NAME,
-        'speech_to_text',
-        speechToText,
-        getSpeechToTextMeta
+        'get_transcript',
+        getTranscript,
+        getGetTranscriptMeta
       )
     )
     .addNode(
@@ -269,15 +259,6 @@ export function createVoiceGraph() {
       )
     )
     .addNode(
-      'text_to_speech',
-      withGraphNodeLogger(
-        VOICE_GRAPH_NAME,
-        'text_to_speech',
-        textToSpeech,
-        getTextToSpeechMeta
-      )
-    )
-    .addNode(
       'update_conversation',
       withGraphNodeLogger(
         VOICE_GRAPH_NAME,
@@ -287,14 +268,13 @@ export function createVoiceGraph() {
       )
     )
     .addEdge('__start__', 'resolve_conversation')
-    .addEdge('resolve_conversation', 'speech_to_text')
-    .addEdge('speech_to_text', 'save_user_message')
+    .addEdge('resolve_conversation', 'get_transcript')
+    .addEdge('get_transcript', 'save_user_message')
     .addEdge('save_user_message', 'load_history')
     .addEdge('load_history', 'analyze_sentiment')
     .addEdge('analyze_sentiment', 'generate_response')
     .addEdge('generate_response', 'save_assistant_message')
-    .addEdge('save_assistant_message', 'text_to_speech')
-    .addEdge('text_to_speech', 'update_conversation')
+    .addEdge('save_assistant_message', 'update_conversation')
     .addEdge('update_conversation', '__end__')
   return builder.compile()
 }
@@ -303,7 +283,6 @@ export interface VoiceGraphResult {
   conversation: Conversation
   transcript: string
   assistantMessage: Message
-  audioBase64: string
   sentiment: NonNullable<VoiceGraphState['sentiment']>
 }
 
@@ -311,6 +290,7 @@ export async function runVoiceGraph(input: VoiceGraphState): Promise<VoiceGraphR
   graphLogger.graphStart(VOICE_GRAPH_NAME, {
     userId: input.userId,
     conversationId: input.conversationId,
+    hasTranscript: input.transcript != null,
     audioFormat: input.audioFormat,
   })
   try {
@@ -322,7 +302,6 @@ export async function runVoiceGraph(input: VoiceGraphState): Promise<VoiceGraphR
       !voice.conversation ||
       !voice.transcript ||
       !voice.assistantMessage ||
-      voice.audioBase64 === undefined ||
       !voice.sentiment
     ) {
       throw new Error('Voice graph did not produce required outputs')
@@ -338,7 +317,6 @@ export async function runVoiceGraph(input: VoiceGraphState): Promise<VoiceGraphR
       conversation: voice.conversation,
       transcript: voice.transcript,
       assistantMessage: voice.assistantMessage,
-      audioBase64: voice.audioBase64,
       sentiment: voice.sentiment,
     }
   } catch (error) {

@@ -2,14 +2,6 @@ import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js'
 import env from '#start/env'
 import logger from '@adonisjs/core/services/logger'
 
-export interface TextToSpeechOptions {
-  text: string
-  voiceId?: string
-  modelId?: string
-  stability?: number
-  similarityBoost?: number
-}
-
 export interface SpeechToTextOptions {
   audioData: Buffer
   language?: string
@@ -27,50 +19,6 @@ export default class ElevenLabsService {
     this.client = new ElevenLabsClient({
       apiKey,
     })
-  }
-
-  /**
-   * Convert text to speech
-   */
-  async textToSpeech(options: TextToSpeechOptions): Promise<Buffer> {
-    try {
-      const rawVoiceId = options.voiceId ?? env.get('ELEVENLABS_VOICE_ID')
-      const voiceId =
-        rawVoiceId && rawVoiceId !== 'dummy' ? rawVoiceId : '21m00Tcm4TlvDq8ikWAM'
-      const rawModelId = options.modelId ?? env.get('ELEVENLABS_MODEL_ID')
-      // STT models (scribe_*) are invalid for TTS; use default TTS model when env is unset or STT
-      const modelId =
-        rawModelId &&
-        rawModelId !== 'dummy' &&
-        !rawModelId.startsWith('scribe')
-          ? rawModelId
-          : 'eleven_turbo_v2_5'
-
-      const audio = await this.client.textToSpeech.convert(voiceId, {
-        text: options.text,
-        modelId: modelId,
-        voiceSettings: {
-          stability: options.stability ?? 0.5,
-          similarityBoost: options.similarityBoost ?? 0.75,
-          style: 0.0,
-          useSpeakerBoost: true,
-        },
-      })
-
-      // Convert stream to buffer
-      const chunks: Uint8Array[] = []
-      logger.info('TTS audio', { audio })
-      for await (const chunk of audio) {
-        chunks.push(chunk)
-      }
-
-      return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      const stack = error instanceof Error ? error.stack : undefined
-      logger.error(`ElevenLabs TTS error: ${message}`, { stack })
-      throw error
-    }
   }
 
   /**

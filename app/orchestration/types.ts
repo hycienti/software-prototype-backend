@@ -32,16 +32,17 @@ export interface ChatGraphState {
 
 export interface VoiceGraphInput {
   userId: number
-  audioData: string
-  audioFormat: string
+  audioData?: string
+  audioFormat?: string
+  transcript?: string
   language?: string
   conversationId?: number
 }
 
 export interface VoiceGraphState {
   userId: number
-  audioData: string
-  audioFormat: string
+  audioData?: string
+  audioFormat?: string
   language: string
   conversationId?: number
   transcript?: string
@@ -50,6 +51,5 @@ export interface VoiceGraphState {
   sentiment?: SentimentResult
   aiResponse?: string
   assistantMessage?: Message
-  audioBase64?: string
   error?: string
 }

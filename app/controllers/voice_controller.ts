@@ -1,24 +1,19 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { randomUUID } from 'node:crypto'
-import Conversation from '#models/conversation'
-import Message from '#models/message'
 import { runVoiceGraph } from '#orchestration/voice_graph'
 import { successResponse, errorResponse, ErrorCodes } from '#utils/response_helper'
-import { processVoiceMessageValidator, textToSpeechValidator } from '#validators/voice_validator'
-import ElevenLabsService from '#services/elevenlabs_service'
+import { processVoiceMessageValidator } from '#validators/voice_validator'
 import pusherService from '#services/pusher_service'
 import logger from '@adonisjs/core/services/logger'
 
 export default class VoiceController {
-  private elevenlabsService = new ElevenLabsService()
-
   /**
    * @processVoiceMessage
-   * @summary Process voice message (STT + AI + TTS)
+   * @summary Process voice message (STT + AI)
    * @tag Voice
-   * @description Convert speech to text, get AI response, and convert response to speech
+   * @description Convert speech to text, get AI response. Client uses expo-speech for TTS.
    * @requestBody {"conversationId": 1, "audioData": "base64...", "audioFormat": "mp3"}
-   * @responseBody 200 - {"success": true, "data": {"conversation": {...}, "transcript": "...", "response": {...}, "audioData": "..."}}
+   * @responseBody 200 - {"success": true, "data": {"conversation": {...}, "transcript": "...", "response": {...}, "sentiment": {...}}}
    * @responseBody 400 - {"success": false, "error": {"code": "BAD_REQUEST", "message": "..."}}
    * @responseBody 401 - {"success": false, "error": {"code": "UNAUTHORIZED", "message": "Unauthorized"}}
    */
@@ -28,38 +23,51 @@ export default class VoiceController {
     try {
       const user = auth.user!
       const payload = await processVoiceMessageValidator.validate(request.all())
+      const hasAudio =
+        payload.audioData != null && payload.audioData.length > 0
+      const hasTranscript =
+        payload.transcript != null && payload.transcript.trim().length > 0
+      if (!hasAudio && !hasTranscript) {
+        return errorResponse(
+          ctx,
+          ErrorCodes.VALIDATION_ERROR,
+          'Either audioData or transcript must be provided',
+          422
+        )
+      }
       const useAsync = payload.async === true
 
       logger.info('Processing voice message', {
         userId: user.id,
         conversationId: payload.conversationId,
-        audioFormat: payload.audioFormat,
-        audioSize: payload.audioData.length,
+        hasTranscript: !!payload.transcript,
+        hasAudioData: !!payload.audioData,
         async: useAsync,
       })
+
+      const graphInput = {
+        userId: user.id,
+        language: payload.language || 'en',
+        conversationId: payload.conversationId ?? undefined,
+        ...(payload.transcript != null && payload.transcript.trim().length > 0
+          ? { transcript: payload.transcript.trim() }
+          : {
+              audioData: payload.audioData!,
+              audioFormat: payload.audioFormat ?? 'mp3',
+            }),
+      }
 
       if (useAsync) {
         const jobId = randomUUID()
         setImmediate(() => {
-          this.runVoiceJob(user.id, jobId, {
-            audioData: payload.audioData,
-            audioFormat: payload.audioFormat ?? 'mp3',
-            language: payload.language || 'en',
-            conversationId: payload.conversationId ?? undefined,
-          }).catch((err) => {
+          this.runVoiceJob(user.id, jobId, graphInput).catch((err) => {
             logger.error('Voice job failed', { jobId, error: err })
           })
         })
         return successResponse(ctx, { jobId, status: 'processing' }, 202)
       }
 
-      const result = await runVoiceGraph({
-        userId: user.id,
-        audioData: payload.audioData,
-        audioFormat: payload.audioFormat ?? 'mp3',
-        language: payload.language || 'en',
-        conversationId: payload.conversationId ?? undefined,
-      })
+      const result = await runVoiceGraph(graphInput)
 
       const processingTime = Date.now() - startTime
       logger.info('Voice message processed successfully', {
@@ -70,7 +78,6 @@ export default class VoiceController {
         processingTimeMs: processingTime,
         sentiment: result.sentiment.sentiment,
         hasCrisisIndicators: result.sentiment.crisisIndicators.length > 0,
-        audioBase64Length: result.audioBase64.length,
       })
 
       return successResponse(ctx, {
@@ -86,8 +93,6 @@ export default class VoiceController {
           content: result.assistantMessage.content,
           metadata: result.assistantMessage.metadata,
         },
-        audioData: result.audioBase64,
-        audioFormat: 'mp3',
         sentiment: result.sentiment,
       })
     } catch (error) {
@@ -116,21 +121,17 @@ export default class VoiceController {
     userId: number,
     jobId: string,
     payload: {
-      audioData: string
-      audioFormat: string
+      userId: number
+      transcript?: string
+      audioData?: string
+      audioFormat?: string
       language: string
       conversationId?: number
     }
   ): Promise<void> {
     try {
       await pusherService.triggerVoiceProgress(userId, { jobId, step: 'processing' })
-      const result = await runVoiceGraph({
-        userId,
-        audioData: payload.audioData,
-        audioFormat: payload.audioFormat,
-        language: payload.language,
-        conversationId: payload.conversationId,
-      })
+      const result = await runVoiceGraph(payload)
       await pusherService.triggerVoiceResultChunked(userId, {
         jobId,
         conversationId: result.conversation.id,
@@ -140,7 +141,6 @@ export default class VoiceController {
           content: result.assistantMessage.content,
           metadata: result.assistantMessage.metadata ?? undefined,
         },
-        audioData: result.audioBase64,
         audioFormat: 'mp3',
         sentiment: result.sentiment as unknown as Record<string, unknown>,
       })
@@ -151,61 +151,4 @@ export default class VoiceController {
     }
   }
 
-  /**
-   * @textToSpeech
-   * @summary Convert text to speech
-   * @tag Voice
-   * @description Convert text to speech audio
-   * @requestBody {"text": "Hello", "voiceId": "optional", "conversationId": 1}
-   * @responseBody 200 - {"success": true, "data": {"audioData": "base64...", "audioFormat": "mp3"}}
-   * @responseBody 400 - {"success": false, "error": {"code": "VALIDATION_ERROR", "message": "..."}}
-   * @responseBody 401 - {"success": false, "error": {"code": "UNAUTHORIZED", "message": "Unauthorized"}}
-   */
-  async textToSpeech(ctx: HttpContext) {
-    const { request, auth } = ctx
-    try {
-      const user = auth.user!
-      const payload = await textToSpeechValidator.validate(request.all())
-
-      const audioBuffer = await this.elevenlabsService.textToSpeech({
-        text: payload.text,
-        voiceId: payload.voiceId,
-        stability: 0.5,
-        similarityBoost: 0.75,
-      })
-
-      const audioBase64 = audioBuffer.toString('base64')
-
-      if (payload.conversationId) {
-        const conversation = await Conversation.query()
-          .where('id', payload.conversationId)
-          .where('user_id', user.id)
-          .firstOrFail()
-
-        await Message.create({
-          conversationId: conversation.id,
-          role: 'assistant',
-          content: payload.text,
-          metadata: {
-            isVoice: true,
-            isTTS: true,
-          },
-        })
-      }
-
-      return successResponse(ctx, {
-        audioData: audioBase64,
-        audioFormat: 'mp3',
-      })
-    } catch (error) {
-      logger.error('Error converting text to speech', { error, userId: auth.user?.id })
-      return errorResponse(
-        ctx,
-        ErrorCodes.INTERNAL_SERVER_ERROR,
-        'Failed to convert text to speech',
-        500,
-        error instanceof Error ? error.message : undefined
-      )
-    }
-  }
 }

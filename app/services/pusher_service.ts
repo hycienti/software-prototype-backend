@@ -74,13 +74,14 @@ class PusherService {
       conversationId: number
       transcript: string
       response: { id: number; content: string; metadata?: Record<string, unknown> }
-      audioData: string
+      audioData?: string
       audioFormat: string
       sentiment?: Record<string, unknown>
     }
   ): Promise<void> {
     const channel = `user-${userId}`
     const { TEXT_CHUNK_SIZE, AUDIO_CHUNK_SIZE } = PusherService
+    const audioData = payload.audioData ?? ''
 
     await this.trigger(channel, 'voice:result:start', {
       jobId: payload.jobId,
@@ -90,7 +91,7 @@ class PusherService {
       audioFormat: payload.audioFormat,
       sentiment: payload.sentiment,
       totalResponseChunks: Math.ceil(payload.response.content.length / TEXT_CHUNK_SIZE),
-      totalAudioChunks: Math.ceil(payload.audioData.length / AUDIO_CHUNK_SIZE),
+      totalAudioChunks: Math.ceil(audioData.length / AUDIO_CHUNK_SIZE),
     })
 
     for (let i = 0; i < payload.response.content.length; i += TEXT_CHUNK_SIZE) {
@@ -102,8 +103,8 @@ class PusherService {
       })
     }
 
-    for (let i = 0; i < payload.audioData.length; i += AUDIO_CHUNK_SIZE) {
-      const chunk = payload.audioData.slice(i, i + AUDIO_CHUNK_SIZE)
+    for (let i = 0; i < audioData.length; i += AUDIO_CHUNK_SIZE) {
+      const chunk = audioData.slice(i, i + AUDIO_CHUNK_SIZE)
       await this.trigger(channel, 'voice:audio:chunk', {
         jobId: payload.jobId,
         index: Math.floor(i / AUDIO_CHUNK_SIZE),

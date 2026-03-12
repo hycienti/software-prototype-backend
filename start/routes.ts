@@ -169,7 +169,6 @@ router
     router
       .group(() => {
         router.post('/process', [VoiceController, 'processVoiceMessage'])
-        router.post('/tts', [VoiceController, 'textToSpeech'])
       })
       .prefix('/voice')
       .use(middleware.auth())
