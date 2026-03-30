@@ -25,7 +25,7 @@ Optional:
 ## Clone and install
 
 ```bash
-git clone <your-remote-url> havens-backend
+git clone https://github.com/hycienti/software-prototype-backend havens-backend
 cd havens-backend
 pnpm install
 ```
@@ -283,7 +283,7 @@ Run `node bin/server.js` from the **`build/`** output directory as wired in `pac
 
 ## Related repository
 
-- **Mobile app:** **Haven** (Expo) — see **`Haven/README.md`** for `EXPO_PUBLIC_API_URL`, simulators, and client/therapist app runbooks.
+- **Mobile app:** https://github.com/hycienti/software-prototype — see **`Haven/README.md`** for `EXPO_PUBLIC_API_URL`, simulators, and client/therapist app runbooks.
 
 ---
 
