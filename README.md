@@ -226,6 +226,25 @@ docker compose -f docker-compose.dev.yml down
 
 Postgres data persists in the **`postgres_data`** volume unless you remove volumes.
 
+### Single-container Docker deploys (Railway, etc.)
+
+For platforms that build from `Dockerfile` and run a single container, startup now does these compose-like steps:
+
+1. Runs `node ace.js migration:run` with retries.
+2. Optionally runs `node ace.js seed:therapists` when enabled.
+3. Starts the server with `node bin/server.js`.
+
+Control this behavior with env vars:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `RUN_MIGRATIONS_ON_START` | `true` | Run DB migrations before server boot. |
+| `RUN_SEED_THERAPISTS_ON_START` | `false` | Run therapist seed on startup (opt-in; not idempotent). |
+| `MIGRATION_RETRIES` | `10` | Number of migration retry attempts. |
+| `MIGRATION_RETRY_DELAY_SECONDS` | `3` | Delay between migration retries in seconds. |
+
+For Railway Docker deployments, set `DATABASE_URL` (and `DB_SSL=true` if your DB requires SSL).
+
 ---
 
 ## API surface / HTTP

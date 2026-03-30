@@ -27,5 +27,7 @@ COPY --from=build /app/build ./
 COPY --from=build /app/build/config ./config
 COPY --from=build /app/docs ./docs
 COPY --from=build /app/node_modules ./node_modules
+COPY scripts/startup.sh ./scripts/startup.sh
+RUN chmod +x ./scripts/startup.sh
 EXPOSE 3333
-CMD ["node", "bin/server.js"]
+CMD ["./scripts/startup.sh"]
