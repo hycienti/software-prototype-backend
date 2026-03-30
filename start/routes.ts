@@ -46,8 +46,12 @@ async function loadStaticOpenApiSpec() {
   const candidates = [
     new URL('../docs/openapi.yml', import.meta.url),
     new URL('../../docs/openapi.yml', import.meta.url),
+    new URL('../swagger.yml', import.meta.url),
+    new URL('../../swagger.yml', import.meta.url),
     join(process.cwd(), 'docs', 'openapi.yml'),
     join(process.cwd(), 'build', 'docs', 'openapi.yml'),
+    join(process.cwd(), 'swagger.yml'),
+    join(process.cwd(), 'build', 'swagger.yml'),
   ]
 
   let lastError: unknown

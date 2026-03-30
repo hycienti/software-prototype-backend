@@ -64,6 +64,26 @@ export default defineConfig({
 
   /*
   |--------------------------------------------------------------------------
+  | Meta files
+  |--------------------------------------------------------------------------
+  |
+  | Copy static OpenAPI specs to the build output so /swagger can serve them
+  | in environments that run from the build directory.
+  |
+  */
+  metaFiles: [
+    {
+      pattern: 'docs/openapi.yml',
+      reloadServer: false,
+    },
+    {
+      pattern: 'swagger.yml',
+      reloadServer: false,
+    },
+  ],
+
+  /*
+  |--------------------------------------------------------------------------
   | Tests
   |--------------------------------------------------------------------------
   |
