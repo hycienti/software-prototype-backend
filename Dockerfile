@@ -19,7 +19,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
-# Regenerate swagger spec with latest routes
+# Regenerate swagger spec with latest routes (tries compiled config first, falls back to source)
 RUN node generate_swagger.js
 
 FROM base AS production

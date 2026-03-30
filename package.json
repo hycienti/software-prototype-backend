@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
+    "swagger:generate": "node generate_swagger.js",
     "docker:migrate": "docker-compose -f docker-compose.dev.yml exec api node ace migration:run",
     "docker:seed": "docker-compose -f docker-compose.dev.yml exec -T api node ace seed:therapists",
     "docker:migrate:seed": "docker-compose -f docker-compose.dev.yml exec -T api node ace migration:run && docker-compose -f docker-compose.dev.yml exec -T api node ace seed:therapists",
