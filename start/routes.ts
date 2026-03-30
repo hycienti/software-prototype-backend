@@ -10,6 +10,7 @@
 import router from '@adonisjs/core/services/router'
 import { middleware } from './kernel.js'
 import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import AutoSwagger from 'adonis-autoswagger'
 import swagger from '#config/swagger'
 
@@ -41,9 +42,28 @@ router.get('/', async () => ({
   message: 'Haven API is running 🏃, lets go to the moon 🚀',
 }))
 
+async function loadStaticOpenApiSpec() {
+  const candidates = [
+    new URL('../docs/openapi.yml', import.meta.url),
+    new URL('../../docs/openapi.yml', import.meta.url),
+    join(process.cwd(), 'docs', 'openapi.yml'),
+    join(process.cwd(), 'build', 'docs', 'openapi.yml'),
+  ]
+
+  let lastError: unknown
+  for (const candidate of candidates) {
+    try {
+      return await readFile(candidate as Parameters<typeof readFile>[0], 'utf8')
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError
+}
+
 router.get('/docs/openapi.yml', async ({ response }) => {
-  const specPath = new URL('../docs/openapi.yml', import.meta.url)
-  const spec = await readFile(specPath, 'utf8')
+  const spec = await loadStaticOpenApiSpec()
   response.type('text/yaml; charset=utf-8')
   response.header('cache-control', 'no-store')
   return spec
@@ -81,17 +101,31 @@ router.get('/docs/static', async ({ response }) => {
 })
 
 router.get('/swagger', async ({ response }) => {
+  const isProduction = process.env.NODE_ENV === 'production'
+
+  if (isProduction) {
+    try {
+      const spec = await loadStaticOpenApiSpec()
+      response.type('application/yaml; charset=utf-8')
+      response.header('cache-control', 'public, max-age=3600')
+      return spec
+    } catch (error) {
+      console.error('Failed to load static swagger spec in production:', error)
+      return response.status(500).send({
+        error: 'Failed to load Swagger documentation',
+        message: 'Static OpenAPI specification is missing or unreadable',
+      })
+    }
+  }
+
   try {
-    // Try to generate dynamically first
     const docs = AutoSwagger.default.docs(router.toJSON(), swagger)
     response.header('cache-control', 'no-store')
     return docs
   } catch (dynamicError) {
-    // If dynamic generation fails, fallback to pre-generated spec
     console.warn('Swagger dynamic generation failed, falling back to static spec:', dynamicError instanceof Error ? dynamicError.message : dynamicError)
     try {
-      const specPath = new URL('../docs/openapi.yml', import.meta.url)
-      const spec = await readFile(specPath, 'utf8')
+      const spec = await loadStaticOpenApiSpec()
       response.type('application/yaml; charset=utf-8')
       response.header('cache-control', 'public, max-age=3600')
       console.info('Serving fallback swagger spec from docs/openapi.yml')
