@@ -82,12 +82,15 @@ router.get('/docs/static', async ({ response }) => {
 
 router.get('/swagger', async ({ response }) => {
   try {
-    const docs = AutoSwagger.default.docs(router.toJSON(), swagger)
-    return docs
+    const specPath = new URL('../docs/openapi.yml', import.meta.url)
+    const spec = await readFile(specPath, 'utf8')
+    response.type('application/yaml; charset=utf-8')
+    response.header('cache-control', 'no-store')
+    return spec
   } catch (error) {
-    console.error('Swagger generation error:', error)
+    console.error('Swagger fetch error:', error)
     response.status(500).send({
-      error: 'Failed to generate Swagger documentation',
+      error: 'Failed to load Swagger documentation',
       message: error instanceof Error ? error.message : 'Unknown error',
     })
   }
