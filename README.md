@@ -257,6 +257,34 @@ Implementation: `commands/seed_therapists.ts`. Adjust or extend for your environ
 
 ---
 
+## API Documentation (Swagger/OpenAPI)
+
+### View docs
+
+- **Local:** `http://localhost:3333/docs` (during `pnpm dev`)
+- **Production:** `https://your-deployment-url/docs`
+
+### Regenerate specs locally
+
+When you add or modify routes, regenerate the OpenAPI spec:
+
+```bash
+# Start the dev server in one terminal
+pnpm dev
+
+# In another terminal, regenerate the spec
+pnpm swagger:generate
+```
+
+The spec is auto-generated from your routes and saved to `docs/openapi.yml`. Commit this file to version control so production deployments have the latest docs.
+
+**How it works at runtime:**
+- Endpoint `/swagger` tries to generate specs dynamically from current routes
+- If dynamic generation fails, it falls back to the pre-generated `docs/openapi.yml` file
+- This ensures docs are always available, even if AutoSwagger encounters issues
+
+---
+
 ## Production build (overview)
 
 ```bash
