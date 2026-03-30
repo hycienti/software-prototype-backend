@@ -82,17 +82,27 @@ router.get('/docs/static', async ({ response }) => {
 
 router.get('/swagger', async ({ response }) => {
   try {
-    const specPath = new URL('../docs/openapi.yml', import.meta.url)
-    const spec = await readFile(specPath, 'utf8')
-    response.type('application/yaml; charset=utf-8')
+    // Try to generate dynamically first
+    const docs = AutoSwagger.default.docs(router.toJSON(), swagger)
     response.header('cache-control', 'no-store')
-    return spec
-  } catch (error) {
-    console.error('Swagger fetch error:', error)
-    response.status(500).send({
-      error: 'Failed to load Swagger documentation',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    })
+    return docs
+  } catch (dynamicError) {
+    // If dynamic generation fails, fallback to pre-generated spec
+    console.warn('Swagger dynamic generation failed, falling back to static spec:', dynamicError instanceof Error ? dynamicError.message : dynamicError)
+    try {
+      const specPath = new URL('../docs/openapi.yml', import.meta.url)
+      const spec = await readFile(specPath, 'utf8')
+      response.type('application/yaml; charset=utf-8')
+      response.header('cache-control', 'public, max-age=3600')
+      console.info('Serving fallback swagger spec from docs/openapi.yml')
+      return spec
+    } catch (fallbackError) {
+      console.error('Both dynamic and static swagger spec failed:', fallbackError)
+      response.status(500).send({
+        error: 'Failed to load Swagger documentation',
+        message: 'Unable to generate or load API specification',
+      })
+    }
   }
 })
 
