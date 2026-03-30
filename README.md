@@ -70,11 +70,13 @@ These are **validated** at startup (`start/env.ts`). Typo-safe summary:
 | `NODE_ENV` | Yes | `development`, `production`, or `test`. |
 | `LOG_LEVEL` | Yes | e.g. `info`, `debug`. |
 | `APP_KEY` | Yes | From `node ace generate:key`. |
-| `DB_HOST` | Yes | PostgreSQL host, e.g. `127.0.0.1` or `postgres` in Docker. |
-| `DB_PORT` | Yes | Usually `5432`. |
-| `DB_USER` | Yes | e.g. `postgres`. |
+| `DATABASE_URL` | Recommended in production | Full Postgres URL for managed/cloud DBs (Railway/Render/Fly/etc.). |
+| `DB_SSL` | Optional | Force SSL for DB connection (`true`/`false`). Defaults to secure behavior in production. |
+| `DB_HOST` | Local/dev fallback | PostgreSQL host, e.g. `127.0.0.1` or `postgres` in Docker Compose. |
+| `DB_PORT` | Local/dev fallback | Usually `5432`. |
+| `DB_USER` | Local/dev fallback | e.g. `postgres`. |
 | `DB_PASSWORD` | Optional | Empty allowed for local trust auth; set in production. |
-| `DB_DATABASE` | Yes | e.g. `haven`. |
+| `DB_DATABASE` | Local/dev fallback | e.g. `haven`. |
 | `DRIVE_DISK` | Yes | **`fs`**, **`s3`**, **`r2`**, or **`gcs`** — must match your storage setup. |
 
 ### 4. Local development with `fs` disk
@@ -178,6 +180,8 @@ File: **`docker-compose.dev.yml`**.
 1. Copy `.env.example` → `.env`.  
 2. Set a real **`APP_KEY`** (`node ace generate:key` on host is fine; paste into `.env`).  
 3. Compose passes **`DB_HOST=postgres`** inside the API container; your **host** `.env` can still use `127.0.0.1` for local tools—the ** compose file overrides** DB host for the `api` service.
+
+For single-container cloud deployments (for example Railway Docker deployments), prefer **`DATABASE_URL`** instead of `DB_HOST`/`DB_PORT` split variables.
 
 The compose file sets **`DRIVE_DISK=${DRIVE_DISK:-fs}`** for the API container, so a fresh stack boots without cloud storage. Override in `.env` if you need **`s3`**, **`r2`**, or **`gcs`** (and supply the matching keys in `.env`).
 
@@ -301,7 +305,7 @@ Run `node bin/server.js` from the **`build/`** output directory as wired in `pac
 | Issue | Checks |
 |-------|--------|
 | **Env validation error on boot** | Every required key in `start/env.ts`; `DRIVE_DISK` must be exactly `fs`, `s3`, `r2`, or `gcs`. |
-| **Cannot connect to DB** | `DB_HOST`/`PORT` from host vs Docker (`postgres` service name inside compose network). |
+| **Cannot connect to DB** | In cloud prod, set `DATABASE_URL` (and `DB_SSL=true` when required). In local Compose, verify `DB_HOST=postgres` inside container network. |
 | **Migrations fail** | Postgres version, user permissions, existing schema conflicts. |
 | **OTP email not sent** | `RESEND_*` keys and verified domain/sender with Resend. |
 | **Video room errors** | `VIDEO_SDK_API_KEY` + `VIDEO_SDK_SECRET` (or valid `VIDEO_SDK_TOKEN`). |
