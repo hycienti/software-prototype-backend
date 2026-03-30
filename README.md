@@ -289,4 +289,6 @@ Run `node bin/server.js` from the **`build/`** output directory as wired in `pac
 
 ## License
 
+**This product is not to be reproduced, either for personal or commercial purposes.**
+
 Refer to `package.json` / your organization (`UNLICENSED` in current metadata).
