@@ -36,12 +36,13 @@ export class TherapistTransactionRepository {
     page: number,
     limit: number
   ): Promise<{ data: TherapistTransaction[]; total: number }> {
-    const q = TherapistTransaction.query()
-      .where('therapist_id', therapistId)
+    const base = TherapistTransaction.query().where('therapist_id', therapistId)
+    const totalRow = await base.clone().count('* as total').first()
+    const data = await base
       .orderBy('created_at', 'desc')
-    const total = await q.clone().count('* as total').first()
-    const data = await q.offset((page - 1) * limit).limit(limit)
-    return { data, total: Number(total?.$extras?.total ?? 0) }
+      .offset((page - 1) * limit)
+      .limit(limit)
+    return { data, total: Number(totalRow?.$extras?.total ?? 0) }
   }
 }
 
@@ -60,11 +61,12 @@ export class TherapistWithdrawalRepository {
     page: number,
     limit: number
   ): Promise<{ data: TherapistWithdrawal[]; total: number }> {
-    const q = TherapistWithdrawal.query()
-      .where('therapist_id', therapistId)
+    const base = TherapistWithdrawal.query().where('therapist_id', therapistId)
+    const totalRow = await base.clone().count('* as total').first()
+    const data = await base
       .orderBy('requested_at', 'desc')
-    const total = await q.clone().count('* as total').first()
-    const data = await q.offset((page - 1) * limit).limit(limit)
-    return { data, total: Number(total?.$extras?.total ?? 0) }
+      .offset((page - 1) * limit)
+      .limit(limit)
+    return { data, total: Number(totalRow?.$extras?.total ?? 0) }
   }
 }

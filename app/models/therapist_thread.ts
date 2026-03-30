@@ -36,6 +36,8 @@ export default class TherapistThread extends BaseModel {
   @belongsTo(() => Session)
   declare session: BelongsTo<typeof Session>
 
-  @hasMany(() => TherapistThreadMessage)
+  @hasMany(() => TherapistThreadMessage, {
+    foreignKey: 'threadId',
+  })
   declare messages: HasMany<typeof TherapistThreadMessage>
 }

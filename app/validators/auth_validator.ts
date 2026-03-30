@@ -1,12 +1,31 @@
 import vine from '@vinejs/vine'
+import type { NormalizeEmailOptions } from 'validator/lib/normalizeEmail.js'
 import { Specialty } from '#enums/specialty'
+
+/**
+ * Default `normalizeEmail()` strips +labels for Gmail / Outlook / iCloud / Yahoo,
+ * so `user+tag@gmail.com` becomes `user@gmail.com` and collides with the base inbox.
+ * We keep subaddresses so each alias can be a distinct account.
+ */
+const emailNormalizeOptions: NormalizeEmailOptions = {
+  gmail_remove_subaddress: false,
+  outlookdotcom_remove_subaddress: false,
+  icloud_remove_subaddress: false,
+  yahoo_remove_subaddress: false,
+}
 
 /**
  * Validator for email submission (initiate OTP flow)
  */
 export const emailValidator = vine.compile(
   vine.object({
-    email: vine.string().trim().email().normalizeEmail().minLength(3).maxLength(254),
+    email: vine
+      .string()
+      .trim()
+      .email()
+      .normalizeEmail(emailNormalizeOptions)
+      .minLength(3)
+      .maxLength(254),
   })
 )
 
@@ -15,7 +34,13 @@ export const emailValidator = vine.compile(
  */
 export const verifyOtpValidator = vine.compile(
   vine.object({
-    email: vine.string().trim().email().normalizeEmail().minLength(3).maxLength(254),
+    email: vine
+      .string()
+      .trim()
+      .email()
+      .normalizeEmail(emailNormalizeOptions)
+      .minLength(3)
+      .maxLength(254),
     code: vine
       .string()
       .trim()
@@ -30,7 +55,13 @@ export const verifyOtpValidator = vine.compile(
  */
 export const completeSignupValidator = vine.compile(
   vine.object({
-    email: vine.string().trim().email().normalizeEmail().minLength(3).maxLength(254),
+    email: vine
+      .string()
+      .trim()
+      .email()
+      .normalizeEmail(emailNormalizeOptions)
+      .minLength(3)
+      .maxLength(254),
     fullName: vine.string().trim().minLength(1).maxLength(255),
   })
 )
@@ -59,7 +90,13 @@ export const updateProfileValidator = vine.compile(
  */
 export const therapistOnboardingValidator = vine.compile(
   vine.object({
-    email: vine.string().trim().email().normalizeEmail().minLength(3).maxLength(254),
+    email: vine
+      .string()
+      .trim()
+      .email()
+      .normalizeEmail(emailNormalizeOptions)
+      .minLength(3)
+      .maxLength(254),
     fullName: vine.string().trim().minLength(1).maxLength(255),
     professionalTitle: vine.string().trim().minLength(1).maxLength(255),
     licenseUrl: vine.string().trim().url().optional(),

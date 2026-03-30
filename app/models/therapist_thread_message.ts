@@ -31,6 +31,8 @@ export default class TherapistThreadMessage extends BaseModel {
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
-  @belongsTo(() => TherapistThread)
+  @belongsTo(() => TherapistThread, {
+    foreignKey: 'threadId',
+  })
   declare thread: BelongsTo<typeof TherapistThread>
 }

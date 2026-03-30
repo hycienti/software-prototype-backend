@@ -34,7 +34,7 @@ const DEFAULT_SLOTS = [
 
 const THERAPISTS: SeedTherapist[] = [
   {
-    email: 'igwezehycient+10@gmail.com',
+    email: 'igwezehycient86+10@gmail.com',
     fullName: 'Igweze Hycient',
     professionalTitle: 'PhD, LMFT',
     specialties: [Specialty.ANXIETY, Specialty.TRAUMA],
@@ -48,7 +48,7 @@ const THERAPISTS: SeedTherapist[] = [
     yearsOfExperience: 12,
   },
   {
-    email: 'igwezehycient+11@gmail.com',
+    email: 'igwezehycient86+11@gmail.com',
     fullName: 'Hycient Igweze',
     professionalTitle: 'PsyD',
     specialties: [Specialty.DEPRESSION, Specialty.CBT],
