@@ -80,12 +80,30 @@ router.get('/docs/static', async ({ response }) => {
 </html>`
 })
 
-router.get('/swagger', async () => {
-  return AutoSwagger.default.docs(router.toJSON(), swagger)
+router.get('/swagger', async ({ response }) => {
+  try {
+    const docs = AutoSwagger.default.docs(router.toJSON(), swagger)
+    return docs
+  } catch (error) {
+    console.error('Swagger generation error:', error)
+    response.status(500).send({
+      error: 'Failed to generate Swagger documentation',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
 })
 
-router.get('/docs', async () => {
-  return AutoSwagger.default.ui('/swagger', swagger)
+router.get('/docs', async ({ response }) => {
+  try {
+    const docs = AutoSwagger.default.ui('/swagger', swagger)
+    return docs
+  } catch (error) {
+    console.error('Swagger UI error:', error)
+    response.status(500).send({
+      error: 'Failed to load Swagger UI',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
 })
 
 router
