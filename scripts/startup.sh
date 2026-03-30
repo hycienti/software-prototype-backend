@@ -11,7 +11,7 @@ run_migrations() {
 
   attempt=1
   while [ "$attempt" -le "$MIGRATION_RETRIES" ]; do
-    if node ace.js migration:run; then
+    if node ace.js migration:run --force; then
       echo "[startup] Migrations completed."
       return 0
     fi
