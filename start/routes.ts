@@ -105,56 +105,22 @@ router.get('/docs/static', async ({ response }) => {
 })
 
 router.get('/swagger', async ({ response }) => {
-  const isProduction = process.env.NODE_ENV === 'production'
-
-  if (isProduction) {
-    try {
-      const spec = await loadStaticOpenApiSpec()
-      response.type('application/yaml; charset=utf-8')
-      response.header('cache-control', 'public, max-age=3600')
-      return spec
-    } catch (error) {
-      console.error('Failed to load static swagger spec in production:', error)
-      return response.status(500).send({
-        error: 'Failed to load Swagger documentation',
-        message: 'Static OpenAPI specification is missing or unreadable',
-      })
-    }
-  }
-
   try {
-    const docs = AutoSwagger.default.docs(router.toJSON(), swagger)
-    response.header('cache-control', 'no-store')
-    return docs
-  } catch (dynamicError) {
-    console.warn('Swagger dynamic generation failed, falling back to static spec:', dynamicError instanceof Error ? dynamicError.message : dynamicError)
-    try {
-      const spec = await loadStaticOpenApiSpec()
-      response.type('application/yaml; charset=utf-8')
-      response.header('cache-control', 'public, max-age=3600')
-      console.info('Serving fallback swagger spec from docs/openapi.yml')
-      return spec
-    } catch (fallbackError) {
-      console.error('Both dynamic and static swagger spec failed:', fallbackError)
-      response.status(500).send({
-        error: 'Failed to load Swagger documentation',
-        message: 'Unable to generate or load API specification',
-      })
-    }
+    const spec = await loadStaticOpenApiSpec()
+    response.type('application/yaml; charset=utf-8')
+    response.header('cache-control', 'public, max-age=3600')
+    return spec
+  } catch (error) {
+    console.error('Failed to load static swagger spec:', error)
+    response.status(500).send({
+      error: 'Failed to load Swagger documentation',
+      message: 'Static OpenAPI specification is missing or unreadable',
+    })
   }
 })
 
-router.get('/docs', async ({ response }) => {
-  try {
-    const docs = AutoSwagger.default.ui('/swagger', swagger)
-    return docs
-  } catch (error) {
-    console.error('Swagger UI error:', error)
-    response.status(500).send({
-      error: 'Failed to load Swagger UI',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    })
-  }
+router.get('/docs', async () => {
+  return AutoSwagger.default.ui('/docs/openapi.yml', swagger)
 })
 
 router

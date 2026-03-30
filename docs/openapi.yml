@@ -1,1027 +1,3514 @@
-openapi: 3.0.3
+openapi: "3.0.0"
 info:
-  title: Havens Backend API
-  version: 1.0.0
-  description: |
-    OpenAPI (Swagger) specification for Havens Backend.
-
-    Google Auth uses OAuth 2.0 web flow: redirect to `/api/v1/auth/google`, authenticate, then callback returns token.
-servers:
-  - url: http://localhost:3333
-    description: Local development
-
-tags:
-  - name: Auth
-    description: Authentication and session endpoints
-  - name: Therapist Auth
-    description: Therapist Authentication and onboarding endpoints
-  - name: Conversations
-    description: Chat and conversation management
-  - name: Realtime
-    description: Real-time event broadcasting via Pusher
-  - name: Notifications
-    description: User notification management
-
-paths:
-  /api/v1/conversations:
-    post:
-      tags: [Conversations]
-      summary: Send a message
-      description: |
-        Send a text message and get AI response.
-        Supports real-time streaming via Pusher.
-
-        **Real-time Streaming:**
-        If `stream: true` is provided, the server will broadcast the AI response in chunks via Pusher.
-
-        **Pusher Details:**
-        - **Channel:** `conversation-{conversationId}`
-        - **Events:**
-          - `stream:start`: `{ messageId: number }`
-          - `stream:chunk`: `{ content: string }`
-          - `stream:complete`: `{ messageId: number, conversationId: number }`
-          - `stream:error`: `{ message: string }`
-      operationId: conversationsSendMessage
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
+  title: "Havens Backend API"
+  version: "1.0.0"
+  description: "Auto-generated Swagger docs for Havens Backend"
+components:
+  responses:
+    Forbidden:
+      description: "Access token is missing or invalid"
+    Accepted:
+      description: "The request was accepted"
+    Created:
+      description: "The resource has been created"
+    NotFound:
+      description: "The resource has been created"
+    NotAcceptable:
+      description: "The resource has been created"
+  securitySchemes:
+    BearerAuth:
+      type: "http"
+      scheme: "bearer"
+    BasicAuth:
+      type: "http"
+      scheme: "basic"
+    ApiKeyAuth:
+      type: "apiKey"
+      in: "header"
+      name: "X-API-Key"
+  schemas:
+    Any:
+      description: "Any JSON object not defined as schema"
+    PaginationMeta:
+      type: "object"
+      properties:
+        total:
+          type: "number"
+          example: 100
+          nullable: false
+        page:
+          type: "number"
+          example: 2
+          nullable: false
+        perPage:
+          type: "number"
+          example: 10
+          nullable: false
+        currentPage:
+          type: "number"
+          example: 3
+          nullable: false
+        lastPage:
+          type: "number"
+          example: 10
+          nullable: false
+        firstPage:
+          type: "number"
+          example: 1
+          nullable: false
+        lastPageUrl:
+          type: "string"
+          example: "/?page=10"
+          nullable: false
+        firstPageUrl:
+          type: "string"
+          example: "/?page=1"
+          nullable: false
+        nextPageUrl:
+          type: "string"
+          example: "/?page=6"
+          nullable: false
+        previousPageUrl:
+          type: "string"
+          example: "/?page=5"
+          nullable: false
+    Achievement:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 348
+        user_id:
+          type: "number"
+          example: 296
+        type:
+          $ref: "#/components/schemas/string // e.g., 'gratitude_streak_7', 'gratitude_count_10', etc."
+          example: null
+        title:
+          type: "string"
+          example: "Lorem Ipsum"
+        description:
+          type: "string"
+          example: "Lorem ipsum dolor sit amet"
+        icon:
+          type: "string"
+          example: "Lorem Ipsum"
+        icon_color:
+          type: "string"
+          example: "Lorem Ipsum"
+        icon_bg_color:
+          type: "string"
+          example: "Lorem Ipsum"
+        threshold:
+          type: "number"
+          example: 506
+        progress:
+          type: "number"
+          example: 973
+        is_completed:
+          type: "boolean"
+          example: true
+        completed_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        user:
+          $ref: "#/components/schemas/User"
+          example: null
+      description: "Achievement (Model)"
+    AiInsight:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 795
+        user_id:
+          type: "number"
+          example: 764
+        type:
+          $ref: "#/components/schemas/'gratitude'"
+          example: null
+        period:
+          $ref: "#/components/schemas/'weekly'"
+          example: null
+        insights:
+          $ref: "#/components/schemas/Record<string, any>"
+          example: null
+        generated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        expires_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        user:
+          $ref: "#/components/schemas/User"
+          example: null
+      description: "AiInsight (Model)"
+    AvailabilitySlot:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 343
+        therapist_id:
+          type: "number"
+          example: 100
+        type:
+          $ref: "#/components/schemas/AvailabilitySlotType"
+          example: null
+        label:
+          type: "string"
+          example: "Lorem Ipsum"
+        days:
+          type: "array"
+          items:
+            type: "number"
+            example: 888
+        date:
+          type: "string"
+          example: "2021-03-23"
+          format: "date-time"
+        start_time:
+          type: "string"
+          example: "Lorem Ipsum"
+        end_time:
+          type: "string"
+          example: "Lorem Ipsum"
+        sort_order:
+          type: "number"
+          example: 921
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        therapist:
+          $ref: "#/components/schemas/Therapist"
+          example: null
+        sessions:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Session"
+            example: null
+      description: "AvailabilitySlot (Model)"
+    Conversation:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 487
+        user_id:
+          type: "number"
+          example: 430
+        title:
+          type: "string"
+          example: "Lorem Ipsum"
+        mode:
+          $ref: "#/components/schemas/ConversationMode"
+          example: null
+        metadata:
+          $ref: "#/components/schemas/Record<string, any>"
+          example: null
+        last_message_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        messages:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Message"
+            example: null
+        user:
+          $ref: "#/components/schemas/User"
+          example: null
+      description: "Conversation (Model)"
+    Gratitude:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 220
+        user_id:
+          type: "number"
+          example: 610
+        entries:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/string[] // Array of gratitude entries"
+            example: null
+        photo_url:
+          type: "string"
+          example: "Lorem Ipsum"
+        entry_date:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        metadata:
+          $ref: "#/components/schemas/Record<string, any>"
+          example: null
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        user:
+          $ref: "#/components/schemas/User"
+          example: null
+      description: "Gratitude (Model)"
+    Message:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 798
+        conversation_id:
+          type: "number"
+          example: 782
+        role:
+          $ref: "#/components/schemas/MessageRole"
+          example: null
         content:
-          application/json:
-            schema:
-              type: object
-              required: [message]
-              properties:
-                message:
-                  type: string
-                  example: 'How are you feeling today?'
-                conversationId:
-                  type: integer
-                  example: 1
-                mode:
-                  type: string
-                  enum: [text, voice]
-                  default: text
-                stream:
-                  type: boolean
-                  default: false
+          type: "string"
+          example: "Lorem Ipsum"
+        metadata:
+          $ref: "#/components/schemas/Record<string, any>"
+          example: null
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        conversation:
+          $ref: "#/components/schemas/Conversation"
+          example: null
+      description: "Message (Model)"
+    Mood:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 0
+        user_id:
+          type: "number"
+          example: 17
+        mood:
+          $ref: "#/components/schemas/string // e.g., 'happy', 'calm', 'anxious', 'sad', 'angry'"
+          example: null
+        intensity:
+          $ref: "#/components/schemas/number // 1-10 scale"
+          example: null
+        notes:
+          type: "string"
+          example: "Lorem Ipsum"
+        photo_url:
+          type: "string"
+          example: "Lorem Ipsum"
+        entry_date:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        tags:
+          type: "array"
+          items:
+            type: "string"
+            example: "Lorem Ipsum"
+        metadata:
+          $ref: "#/components/schemas/Record<string, any>"
+          example: null
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        user:
+          $ref: "#/components/schemas/User"
+          example: null
+      description: "Mood (Model)"
+    Notification:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 749
+        user_id:
+          type: "number"
+          example: 195
+        therapist_id:
+          type: "number"
+          example: 256
+        notification_type_id:
+          type: "number"
+          example: 245
+        category_id:
+          type: "number"
+          example: 120
+        delivery_id:
+          type: "number"
+          example: 965
+        title:
+          type: "string"
+          example: "Lorem Ipsum"
+        message:
+          type: "string"
+          example: "Lorem Ipsum"
+        type:
+          type: "string"
+          example: "Lorem Ipsum"
+        is_read:
+          type: "boolean"
+          example: true
+        data:
+          $ref: "#/components/schemas/Any"
+          example: null
+        user:
+          $ref: "#/components/schemas/User"
+          example: null
+        therapist:
+          $ref: "#/components/schemas/Therapist"
+          example: null
+        notification_type:
+          $ref: "#/components/schemas/NotificationType"
+          example: null
+        category:
+          $ref: "#/components/schemas/NotificationCategory"
+          example: null
+        delivery:
+          $ref: "#/components/schemas/NotificationDelivery"
+          example: null
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+      description: "Notification (Model)"
+    NotificationCategory:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 52
+        name:
+          type: "string"
+          example: "John Doe"
+        slug:
+          type: "string"
+          example: "Lorem Ipsum"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        types:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/NotificationType"
+            example: null
+        notifications:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Notification"
+            example: null
+      description: "NotificationCategory (Model)"
+    NotificationChannel:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 960
+        name:
+          type: "string"
+          example: "John Doe"
+        slug:
+          type: "string"
+          example: "Lorem Ipsum"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        templates:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/NotificationTemplate"
+            example: null
+        deliveries:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/NotificationDelivery"
+            example: null
+      description: "NotificationChannel (Model)"
+    NotificationDelivery:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 538
+        recipient_type:
+          $ref: "#/components/schemas/string // 'user'"
+          example: null
+        recipient_id:
+          type: "number"
+          example: 516
+        channel_id:
+          type: "number"
+          example: 143
+        notification_type_id:
+          type: "number"
+          example: 631
+        template_id:
+          type: "number"
+          example: 871
+        status:
+          $ref: "#/components/schemas/DeliveryStatus"
+          example: null
+        retry_count:
+          type: "number"
+          example: 49
+        max_retries:
+          type: "number"
+          example: 928
+        last_error:
+          type: "string"
+          example: "Lorem Ipsum"
+        metadata:
+          $ref: "#/components/schemas/Record<string, unknown>"
+          example: null
+        sent_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        channel:
+          $ref: "#/components/schemas/NotificationChannel"
+          example: null
+        notification_type:
+          $ref: "#/components/schemas/NotificationType"
+          example: null
+        template:
+          $ref: "#/components/schemas/NotificationTemplate"
+          example: null
+        notification:
+          $ref: "#/components/schemas/Notification"
+          example: null
+      description: "NotificationDelivery (Model)"
+    NotificationTemplate:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 4
+        notification_type_id:
+          type: "number"
+          example: 398
+        channel_id:
+          type: "number"
+          example: 81
+        product_type:
+          $ref: "#/components/schemas/string // 'user'"
+          example: null
+        locale:
+          type: "string"
+          example: "Lorem Ipsum"
+        subject:
+          type: "string"
+          example: "Lorem Ipsum"
+        body_html:
+          type: "string"
+          example: "Lorem Ipsum"
+        body_text:
+          type: "string"
+          example: "Lorem Ipsum"
+        template_variables:
+          type: "array"
+          items:
+            type: "string"
+            example: "Lorem Ipsum"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        notification_type:
+          $ref: "#/components/schemas/NotificationType"
+          example: null
+        channel:
+          $ref: "#/components/schemas/NotificationChannel"
+          example: null
+      description: "NotificationTemplate (Model)"
+    NotificationType:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 740
+        category_id:
+          type: "number"
+          example: 612
+        name:
+          type: "string"
+          example: "John Doe"
+        slug:
+          type: "string"
+          example: "Lorem Ipsum"
+        description:
+          type: "string"
+          example: "Lorem ipsum dolor sit amet"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        category:
+          $ref: "#/components/schemas/NotificationCategory"
+          example: null
+        templates:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/NotificationTemplate"
+            example: null
+        deliveries:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/NotificationDelivery"
+            example: null
+        notifications:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Notification"
+            example: null
+      description: "NotificationType (Model)"
+    Otp:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 885
+        email:
+          type: "string"
+          example: "johndoe@example.com"
+          format: "email"
+        code:
+          type: "string"
+          example: "Lorem Ipsum"
+        verified:
+          type: "boolean"
+          example: true
+        expires_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+      description: "Otp (Model)"
+    Session:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 157
+        user_id:
+          type: "number"
+          example: 637
+        therapist_id:
+          type: "number"
+          example: 216
+        availability_slot_id:
+          type: "number"
+          example: 567
+        scheduled_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        duration_minutes:
+          type: "number"
+          example: 773
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+          example: null
+        meeting_id:
+          type: "string"
+          example: "Lorem Ipsum"
+        sentiment:
+          $ref: "#/components/schemas/SessionSentiment"
+          example: null
+        engagement_level:
+          type: "number"
+          example: 330
+        clinical_notes:
+          type: "string"
+          example: "Lorem Ipsum"
+        follow_up_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        summary_completed_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        user_summary_main_topics:
+          type: "array"
+          items:
+            type: "string"
+            example: "Lorem Ipsum"
+        user_summary_action_items:
+          type: "array"
+          items:
+            type: "string"
+            example: "Lorem Ipsum"
+        user_summary_key_reflection:
+          type: "string"
+          example: "Lorem Ipsum"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        user:
+          $ref: "#/components/schemas/User"
+          example: null
+        therapist:
+          $ref: "#/components/schemas/Therapist"
+          example: null
+        availability_slot:
+          $ref: "#/components/schemas/AvailabilitySlot"
+          example: null
+        therapist_thread:
+          $ref: "#/components/schemas/TherapistThread"
+          example: null
+      description: "Session (Model)"
+    SessionFeedback:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 200
+        session_id:
+          type: "number"
+          example: 750
+        rating:
+          type: "number"
+          example: 680
+        sentiment_after:
+          $ref: "#/components/schemas/FeedbackSentimentAfter"
+          example: null
+        comment:
+          type: "string"
+          example: "Lorem Ipsum"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        session:
+          $ref: "#/components/schemas/Session"
+          example: null
+      description: "SessionFeedback (Model)"
+    Therapist:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 443
+        email:
+          type: "string"
+          example: "johndoe@example.com"
+          format: "email"
+        full_name:
+          type: "string"
+          example: "John Doe"
+        professional_title:
+          type: "string"
+          example: "Lorem Ipsum"
+        about:
+          type: "string"
+          example: "Lorem Ipsum"
+        profile_photo_url:
+          type: "string"
+          example: "Lorem Ipsum"
+        rate_cents:
+          type: "number"
+          example: 460
+        education:
+          type: "string"
+          example: "Lorem Ipsum"
+        years_of_experience:
+          type: "number"
+          example: 332
+        license_url:
+          type: "string"
+          example: "Lorem Ipsum"
+        identity_url:
+          type: "string"
+          example: "Lorem Ipsum"
+        specialties:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Specialty"
+            example: null
+        email_verified:
+          type: "boolean"
+          example: true
+        accepting_new_clients:
+          type: "boolean"
+          example: true
+        personal_meeting_link:
+          type: "string"
+          example: "Lorem Ipsum"
+        last_login_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        availability_slots:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/AvailabilitySlot"
+            example: null
+      description: "Therapist (Model)"
+    TherapistThread:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 992
+        user_id:
+          type: "number"
+          example: 735
+        therapist_id:
+          type: "number"
+          example: 705
+        session_id:
+          type: "number"
+          example: 306
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        user:
+          $ref: "#/components/schemas/User"
+          example: null
+        therapist:
+          $ref: "#/components/schemas/Therapist"
+          example: null
+        session:
+          $ref: "#/components/schemas/Session"
+          example: null
+        messages:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/TherapistThreadMessage"
+            example: null
+      description: "TherapistThread (Model)"
+    TherapistThreadMessage:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 914
+        thread_id:
+          type: "number"
+          example: 1
+        sender_type:
+          $ref: "#/components/schemas/TherapistThreadMessageSenderType"
+          example: null
+        body:
+          type: "string"
+          example: "Lorem Ipsum"
+        voice_url:
+          type: "string"
+          example: "Lorem Ipsum"
+        attachment_urls:
+          type: "array"
+          items:
+            type: "string"
+            example: "Lorem Ipsum"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        thread:
+          $ref: "#/components/schemas/TherapistThread"
+          example: null
+      description: "TherapistThreadMessage (Model)"
+    TherapistTransaction:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 348
+        therapist_id:
+          type: "number"
+          example: 626
+        amount_cents:
+          type: "number"
+          example: 334
+        type:
+          type: "string"
+          example: "Lorem Ipsum"
+        description:
+          type: "string"
+          example: "Lorem ipsum dolor sit amet"
+        session_id:
+          type: "number"
+          example: 960
+        withdrawal_id:
+          type: "number"
+          example: 35
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        therapist:
+          $ref: "#/components/schemas/Therapist"
+          example: null
+        session:
+          $ref: "#/components/schemas/Session"
+          example: null
+      description: "TherapistTransaction (Model)"
+    TherapistWallet:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 842
+        therapist_id:
+          type: "number"
+          example: 48
+        balance_cents:
+          type: "number"
+          example: 171
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        therapist:
+          $ref: "#/components/schemas/Therapist"
+          example: null
+      description: "TherapistWallet (Model)"
+    TherapistWithdrawal:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 291
+        therapist_id:
+          type: "number"
+          example: 840
+        amount_cents:
+          type: "number"
+          example: 225
+        status:
+          type: "string"
+          example: "Lorem Ipsum"
+        reference:
+          type: "string"
+          example: "Lorem Ipsum"
+        requested_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        completed_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        therapist:
+          $ref: "#/components/schemas/Therapist"
+          example: null
+      description: "TherapistWithdrawal (Model)"
+    User:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 12
+        full_name:
+          type: "string"
+          example: "John Doe"
+        email:
+          type: "string"
+          example: "johndoe@example.com"
+          format: "email"
+        avatar_url:
+          type: "string"
+          example: "Lorem Ipsum"
+        email_verified:
+          type: "boolean"
+          example: true
+        last_login_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+      description: "User (Model)"
+    UserPayment:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 820
+        user_id:
+          type: "number"
+          example: 806
+        amount_cents:
+          type: "number"
+          example: 464
+        currency:
+          type: "string"
+          example: "Lorem Ipsum"
+        status:
+          $ref: "#/components/schemas/'pending'"
+          example: null
+        session_id:
+          type: "number"
+          example: 676
+        therapist_id:
+          type: "number"
+          example: 532
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        user:
+          $ref: "#/components/schemas/User"
+          example: null
+        session:
+          $ref: "#/components/schemas/Session"
+          example: null
+        therapist:
+          $ref: "#/components/schemas/Therapist"
+          example: null
+      description: "UserPayment (Model)"
+    Wallet:
+      type: "object"
+      required: []
+      properties:
+        id:
+          type: "number"
+          example: 679
+        created_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+        updated_at:
+          type: "string"
+          example: "2021-03-23T16:13:08.489+01:00"
+          format: "date-time"
+      description: "Wallet (Model)"
+    completeSignupValidator:
+      type: "object"
+      properties:
+        email:
+          type: "string"
+          example: "Lorem Ipsum"
+          required: true
+          minLength: 3
+          maxLength: 254
+        fullName:
+          type: "string"
+          example: "Lorem Ipsum"
+          required: true
+          minLength: 1
+          maxLength: 255
+      example:
+        email: "Lorem Ipsum"
+        fullName: "Lorem Ipsum"
+      description: "completeSignupValidator (Validator)"
+    emailValidator:
+      type: "object"
+      properties:
+        email:
+          type: "string"
+          example: "Lorem Ipsum"
+          required: true
+          minLength: 3
+          maxLength: 254
+      example:
+        email: "Lorem Ipsum"
+      description: "emailValidator (Validator)"
+    refreshTokenValidator:
+      type: "object"
+      properties:
+        refreshToken:
+          type: "string"
+          example: "Lorem Ipsum"
+          required: true
+      example:
+        refreshToken: "Lorem Ipsum"
+      description: "refreshTokenValidator (Validator)"
+    therapistOnboardingValidator:
+      type: "object"
+      properties:
+        email:
+          type: "string"
+          example: "Lorem Ipsum"
+          required: true
+          minLength: 3
+          maxLength: 254
+        fullName:
+          type: "string"
+          example: "Lorem Ipsum"
+          required: true
+          minLength: 1
+          maxLength: 255
+        professionalTitle:
+          type: "string"
+          example: "Lorem Ipsum"
+          required: true
+          minLength: 1
+          maxLength: 255
+        licenseUrl:
+          type: "string"
+          example: "Lorem Ipsum"
+        identityUrl:
+          type: "string"
+          example: "Lorem Ipsum"
+        specialties:
+          type: "array"
+          items:
+            type: "number"
+            example: 1
+            minimum: 1
+          required: true
+      example:
+        email: "Lorem Ipsum"
+        fullName: "Lorem Ipsum"
+        professionalTitle: "Lorem Ipsum"
+        licenseUrl: "Lorem Ipsum"
+        identityUrl: "Lorem Ipsum"
+        specialties:
+          - 1
+      description: "therapistOnboardingValidator (Validator)"
+    therapistUpdateProfileValidator:
+      type: "object"
+      properties:
+        fullName:
+          type: "string"
+          example: "Lorem Ipsum"
+          minLength: 1
+          maxLength: 255
+        professionalTitle:
+          type: "string"
+          example: "Lorem Ipsum"
+          maxLength: 255
+        licenseUrl:
+          type: "string"
+          example: "Lorem Ipsum"
+        identityUrl:
+          type: "string"
+          example: "Lorem Ipsum"
+        about:
+          type: "string"
+          example: "Lorem Ipsum"
+          maxLength: 10000
+        profilePhotoUrl:
+          type: "string"
+          example: "Lorem Ipsum"
+        rateCents:
+          type: "number"
+          example: 927
+        education:
+          type: "string"
+          example: "Lorem Ipsum"
+          maxLength: 5000
+        yearsOfExperience:
+          type: "number"
+          example: 933
+      example:
+        fullName: "Lorem Ipsum"
+        professionalTitle: "Lorem Ipsum"
+        licenseUrl: "Lorem Ipsum"
+        identityUrl: "Lorem Ipsum"
+        about: "Lorem Ipsum"
+        profilePhotoUrl: "Lorem Ipsum"
+        rateCents: 927
+        education: "Lorem Ipsum"
+        yearsOfExperience: 933
+      description: "therapistUpdateProfileValidator (Validator)"
+    updateProfileValidator:
+      type: "object"
+      properties:
+        fullName:
+          type: "string"
+          example: "Lorem Ipsum"
+          minLength: 1
+          maxLength: 255
+        avatarUrl:
+          type: "string"
+          example: "Lorem Ipsum"
+      example:
+        fullName: "Lorem Ipsum"
+        avatarUrl: "Lorem Ipsum"
+      description: "updateProfileValidator (Validator)"
+    verifyOtpValidator:
+      type: "object"
+      properties:
+        email:
+          type: "string"
+          example: "Lorem Ipsum"
+          required: true
+          minLength: 3
+          maxLength: 254
+        code:
+          type: "string"
+          example: "Lorem Ipsum"
+          pattern: "/^\\d{6}$/"
+          required: true
+          minLength: 6
+          maxLength: 6
+      example:
+        email: "Lorem Ipsum"
+        code: "Lorem Ipsum"
+      description: "verifyOtpValidator (Validator)"
+    updateAvailabilityValidator:
+      type: "object"
+      properties:
+        acceptingNewClients:
+          type: "boolean"
+          example: true
+        personalMeetingLink:
+          type: "string"
+          example: "Lorem Ipsum"
+          maxLength: 512
+        availabilitySlots:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              id:
+                type: "number"
+                example: 812
+                maximum: 64
+              label:
+                type: "number"
+                example: 166
+                maximum: 128
+              type:
+                type: "number"
+                example: 592
+                choices:
+                  - "recurring"
+                  - "one_off"
+              days:
+                type: "array"
+                items:
+                  type: "number"
+                  example: 547
+              date:
+                type: "number"
+                example: 317
+                maximum: 10
+              startTime:
+                type: "number"
+                example: 341
+                maximum: 8
+                required: true
+              endTime:
+                type: "number"
+                example: 783
+                maximum: 8
+                required: true
+          properties:
+            items:
+              id:
+                type: "string"
+                example: "Lorem Ipsum"
+              label:
+                type: "string"
+                example: "Lorem Ipsum"
+              date:
+                type: "string"
+                example: "Lorem Ipsum"
+              startTime:
+                type: "string"
+                example: "Lorem Ipsum"
+              endTime:
+                type: "string"
+                example: "Lorem Ipsum"
+      example:
+        acceptingNewClients: true
+        personalMeetingLink: "Lorem Ipsum"
+        availabilitySlots:
+          - id: "Lorem Ipsum"
+            label: "Lorem Ipsum"
+            type: 592
+            days:
+              - 547
+            date: "Lorem Ipsum"
+            startTime: "Lorem Ipsum"
+            endTime: "Lorem Ipsum"
+      description: "updateAvailabilityValidator (Validator)"
+    deleteConversationValidator:
+      type: "object"
+      properties:
+        conversationId:
+          type: "number"
+          example: 990
+          required: true
+      example:
+        conversationId: 990
+      description: "deleteConversationValidator (Validator)"
+    getConversationHistoryValidator:
+      type: "object"
+      properties:
+        page:
+          type: "number"
+          example: 93
+        limit:
+          type: "number"
+          example: 578
+          maximum: 100
+      example:
+        page: 93
+        limit: 578
+      description: "getConversationHistoryValidator (Validator)"
+    sendMessageValidator:
+      type: "object"
+      properties:
+        conversationId:
+          type: "number"
+          example: 400
+        message:
+          type: "string"
+          example: "Lorem Ipsum"
+          required: true
+          minLength: 1
+          maxLength: 5000
+        mode:
+          type: "number"
+          example: 245
+          choices:
+            - "text"
+            - "voice"
+      example:
+        conversationId: 400
+        message: "Lorem Ipsum"
+        mode: 245
+      description: "sendMessageValidator (Validator)"
+    streamStatusValidator:
+      type: "object"
+      properties:
+        conversationId:
+          type: "number"
+          example: 714
+          required: true
+        userMessageId:
+          type: "number"
+          example: 164
+          required: true
+      example:
+        conversationId: 714
+        userMessageId: 164
+      description: "streamStatusValidator (Validator)"
+paths:
+  /uploads/*:
+    get:
+      summary: "route"
+      description: "\n\n __ - ****"
+      parameters: []
+      tags: []
       responses:
-        '200':
-          description: Message sent and AI response generated
+        200:
+          description: "OK"
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  conversation:
-                    $ref: '#/components/schemas/Conversation'
-                  message:
-                    $ref: '#/components/schemas/Message'
-                  response:
-                    $ref: '#/components/schemas/Message'
-                  sentiment:
-                    type: object
-                    properties:
-                      sentiment:
-                        type: string
-                      crisisIndicators:
-                        type: array
-                        items:
-                          type: string
-                      confidence:
-                        type: number
-        '401':
-          description: Unauthorized
-        '422':
-          description: Validation error
-
+            application/json: {}
+      security: []
+  /:
+    get:
+      summary: "route"
+      description: "\n\n __ - ****"
+      parameters: []
+      tags: []
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
   /api/v1/auth/send-otp:
     post:
-      tags: [Auth]
-      summary: Send OTP to email
-      description: Sends a 6-digit OTP code to the provided email address.
-      operationId: authSendOtp
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email]
-              properties:
-                email:
-                  type: string
-                  format: email
-                  example: user@example.com
-            examples:
-              default:
-                value:
-                  email: user@example.com
+      summary: "Send OTP to email (sendOtp)"
+      description: "\n\n _app/controllers/auth_controller.ts_ - **sendOtp**"
+      parameters: []
+      tags:
+        - "AUTH"
       responses:
-        '200':
-          description: OTP sent successfully
+        201:
+          description: "Created"
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: OTP sent successfully
-                  expiresIn:
-                    type: integer
-                    example: 600
-              examples:
-                default:
-                  value:
-                    message: OTP sent successfully
-                    expiresIn: 600
-        '422':
-          description: Validation error
-        '429':
-          description: Too many requests (rate limiting)
-
+            application/json: {}
+      security: []
   /api/v1/auth/verify-otp:
     post:
-      tags: [Auth]
-      summary: Verify OTP code
-      description: Verifies the OTP code and returns user info or indicates if signup is needed.
-      operationId: authVerifyOtp
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, code]
-              properties:
-                email:
-                  type: string
-                  format: email
-                  example: user@example.com
-                code:
-                  type: string
-                  example: '123456'
-            examples:
-              default:
-                value:
-                  email: user@example.com
-                  code: '123456'
+      summary: "Verify OTP code (verifyOtp)"
+      description: "\n\n _app/controllers/auth_controller.ts_ - **verifyOtp**"
+      parameters: []
+      tags:
+        - "AUTH"
       responses:
-        '200':
-          description: OTP verified or signup required
+        201:
+          description: "Created"
           content:
-            application/json:
-              schema:
-                oneOf:
-                  - type: object
-                    properties:
-                      user:
-                        $ref: '#/components/schemas/UserPublic'
-                      token:
-                        $ref: '#/components/schemas/Token'
-                      requiresSignup:
-                        type: boolean
-                        example: false
-                  - type: object
-                    properties:
-                      requiresSignup:
-                        type: boolean
-                        example: true
-                      email:
-                        type: string
-                        example: user@example.com
-                      message:
-                        type: string
-                        example: Please complete your signup by providing your full name
-              examples:
-                success:
-                  summary: Login successful
-                  value:
-                    user:
-                      id: 1
-                      email: user@example.com
-                      fullName: Ada Lovelace
-                      avatarUrl: https://cdn.haven.app/avatar.png
-                      emailVerified: true
-                    token:
-                      type: bearer
-                      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                      expiresAt: '2026-01-23T12:00:00.000Z'
-                    requiresSignup: false
-                signupRequired:
-                  summary: Signup required
-                  value:
-                    requiresSignup: true
-                    email: user@example.com
-                    message: Please complete your signup by providing your full name
-        '400':
-          description: Invalid or expired OTP
-        '422':
-          description: Validation error
-
+            application/json: {}
+      security: []
   /api/v1/auth/complete-signup:
     post:
-      tags: [Auth]
-      summary: Complete signup with fullname
-      description: Completes the signup process for new users by saving their fullname.
-      operationId: authCompleteSignup
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, fullName]
-              properties:
-                email:
-                  type: string
-                  format: email
-                  example: user@example.com
-                fullName:
-                  type: string
-                  example: John Doe
-            examples:
-              default:
-                value:
-                  email: user@example.com
-                  fullName: John Doe
+      summary: "Complete signup with fullname (completeSignup)"
+      description: "\n\n _app/controllers/auth_controller.ts_ - **completeSignup**"
+      parameters: []
+      tags:
+        - "AUTH"
       responses:
-        '200':
-          description: Signup completed
+        201:
+          description: "Created"
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: '#/components/schemas/UserPublic'
-                  token:
-                    $ref: '#/components/schemas/Token'
-              examples:
-                default:
-                  value:
-                    user:
-                      id: 1
-                      email: user@example.com
-                      fullName: John Doe
-                      avatarUrl: null
-                      emailVerified: true
-                    token:
-                      type: bearer
-                      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                      expiresAt: '2026-01-23T12:00:00.000Z'
-        '400':
-          description: User already exists or OTP not verified
-        '422':
-          description: Validation error
-  /api/v1/auth/google:
-    get:
-      tags: [Auth]
-      summary: Redirect to Google OAuth
-      description: |
-        Initiates Google OAuth 2.0 flow by redirecting to Google's consent screen.
-
-        After user authenticates, Google redirects to `/api/v1/auth/google/callback` which returns the bearer token.
-      operationId: authGoogleRedirect
-      responses:
-        '302':
-          description: Redirects to Google OAuth consent page
-          headers:
-            Location:
-              description: Google OAuth authorization URL
-              schema:
-                type: string
-
-  /api/v1/auth/google/callback:
-    get:
-      tags: [Auth]
-      summary: Google OAuth callback
-      description: |
-        Handles the callback from Google OAuth after user authentication.
-
-        This endpoint is called by Google after user grants permissions.
-        Returns user information and bearer token.
-      operationId: authGoogleCallback
-      responses:
-        '200':
-          description: Authenticated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-              examples:
-                default:
-                  value:
-                    user:
-                      id: 1
-                      email: user@example.com
-                      fullName: Ada Lovelace
-                      avatarUrl: https://cdn.haven.app/avatar.png
-                      emailVerified: true
-                    token:
-                      type: bearer
-                      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                      expiresAt: '2026-01-23T12:00:00.000Z'
-        '400':
-          description: OAuth error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                default:
-                  value:
-                    message: OAuth error
-        '401':
-          description: Access denied or invalid OAuth state
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                default:
-                  value:
-                    message: Access denied
-
-  /api/v1/auth/apple:
-    post:
-      tags: [Auth]
-      summary: Sign in with Apple
-      description: |
-        Exchanges an Apple `idToken` for an API bearer token.
-
-        The server fetches Apple's signing keys, verifies the JWT signature,
-        and checks the `aud` matches the configured `APPLE_CLIENT_ID`.
-      operationId: authApple
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AppleAuthRequest'
-            examples:
-              default:
-                value:
-                  idToken: 'eyJraWQiOiIxQTJCNEMzRCIsImFsZyI6IlJTMjU2In0...'
-                  fullName: 'Ada Lovelace'
-                  authorizationCode: 'c9b2a0c2c9d14f7a9c...'
-      responses:
-        '200':
-          description: Authenticated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          description: Invalid request or token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ValidationErrorResponse'
-
-  /api/v1/user/me:
-    get:
-      tags: [Auth]
-      summary: Get current user
-      operationId: authMe
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Current user
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MeResponse'
-              examples:
-                default:
-                  value:
-                    user:
-                      id: 1
-                      email: user@example.com
-                      fullName: Ada Lovelace
-                      avatarUrl: https://cdn.haven.app/avatar.png
-                      emailVerified: true
-                      lastLoginAt: '2026-01-23T11:00:00.000Z'
-                      createdAt: '2026-01-01T10:00:00.000Z'
-        '401':
-          description: Missing/invalid bearer token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                default:
-                  value:
-                    message: Unauthorized
-
+            application/json: {}
+      security: []
   /api/v1/auth/refresh:
     post:
-      tags: [Auth]
-      summary: Refresh bearer token
-      description: |
-        Rotates the current bearer token.
-
-        This endpoint requires a valid bearer token; it deletes the current token and
-        issues a new one.
-      operationId: authRefresh
-      security:
-        - bearerAuth: []
+      summary: "Refresh access token (refresh)"
+      description: "\n\n _app/controllers/auth_controller.ts_ - **refresh**"
+      parameters: []
+      tags:
+        - "AUTH"
       responses:
-        '200':
-          description: New bearer token issued
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RefreshResponse'
-              examples:
-                default:
-                  value:
-                    token:
-                      type: bearer
-                      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                      expiresAt: '2026-01-23T12:00:00.000Z'
-        '401':
-          description: Missing/invalid bearer token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                default:
-                  value:
-                    message: Unauthorized
-
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
   /api/v1/auth/logout:
     post:
-      tags: [Auth]
-      summary: Logout
-      description: |
-        Deletes the current bearer token.
-      operationId: authLogout
-      security:
-        - bearerAuth: []
+      summary: "Logout (logout)"
+      description: "\n\n _app/controllers/auth_controller.ts_ - **logout**"
+      parameters: []
+      tags:
+        - "AUTH"
       responses:
-        '200':
-          description: Logged out
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LogoutResponse'
-              examples:
-                default:
-                  value:
-                    message: Logged out successfully
-        '401':
-          description: Missing/invalid bearer token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                default:
-                  value:
-                    message: Unauthorized
-
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
   /api/v1/therapist/auth/send-otp:
     post:
-      tags: [Therapist Auth]
-      summary: Send OTP to therapist email
-      description: Sends a 6-digit OTP code to the provided therapist email address.
-      operationId: therapistAuthSendOtp
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email]
-              properties:
-                email:
-                  type: string
-                  format: email
-                  example: therapist@example.com
+      summary: " (sendOtp)"
+      description: "\n\n _app/controllers/therapists_controller.ts_ - **sendOtp**"
+      parameters: []
+      tags:
+        - "THERAPIST"
       responses:
-        '200':
-          description: OTP sent successfully
+        201:
+          description: "Created"
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: OTP sent successfully
-                  expiresIn:
-                    type: integer
-                    example: 600
-
+            application/json: {}
+      security: []
+      requestBody:
+        content:
+          application/json: {}
   /api/v1/therapist/auth/verify-otp:
     post:
-      tags: [Therapist Auth]
-      summary: Verify therapist OTP code
-      description: Verifies the OTP code and returns therapist info or indicates if onboarding is needed.
-      operationId: therapistAuthVerifyOtp
+      summary: " (verifyOtp)"
+      description: "\n\n _app/controllers/therapists_controller.ts_ - **verifyOtp**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        201:
+          description: "Created"
+          content:
+            application/json: {}
+      security: []
       requestBody:
-        required: true
         content:
-          application/json:
-            schema:
-              type: object
-              required: [email, code]
-              properties:
-                email:
-                  type: string
-                  format: email
-                  example: therapist@example.com
-                code:
-                  type: string
-                  example: '123456'
-      responses:
-        '200':
-          description: OTP verified or onboarding required
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - type: object
-                    properties:
-                      therapist:
-                        $ref: '#/components/schemas/TherapistPublic'
-                      token:
-                        $ref: '#/components/schemas/Token'
-                      requiresOnboarding:
-                        type: boolean
-                        example: false
-                  - type: object
-                    properties:
-                      requiresOnboarding:
-                        type: boolean
-                        example: true
-                      email:
-                        type: string
-                        example: therapist@example.com
-                      message:
-                        type: string
-                        example: Please complete your onboarding by providing your professional details
-        '400':
-          description: Invalid or expired OTP
-
-  /api/v1/therapist/auth/specialties:
-    get:
-      tags: [Therapist Auth]
-      summary: List all available specialties
-      description: Returns a list of all professional specialties available for therapists.
-      operationId: therapistAuthSpecialties
-      responses:
-        '200':
-          description: A list of specialties
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
-                example: [Anxiety, Depression, CBT]
-
+          application/json: {}
   /api/v1/therapist/auth/onboard:
     post:
-      tags: [Therapist Auth]
-      summary: Complete therapist onboarding
-      description: Completes the onboarding process for new therapists by saving their professional details.
-      operationId: therapistAuthOnboard
+      summary: " (onboard)"
+      description: "\n\n _app/controllers/therapists_controller.ts_ - **onboard**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        201:
+          description: "Created"
+          content:
+            application/json: {}
+      security: []
       requestBody:
-        required: true
+        content:
+          application/json: {}
+  /api/v1/therapist/auth/specialties:
+    get:
+      summary: " (specialties)"
+      description: "\n\n _app/controllers/therapists_controller.ts_ - **specialties**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
+  /api/v1/therapist/auth/me:
+    get:
+      summary: " (me)"
+      description: "\n\n _app/controllers/therapists_controller.ts_ - **me**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+    patch:
+      summary: " (updateMe)"
+      description: "\n\n _app/controllers/therapists_controller.ts_ - **updateMe**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/therapist/auth/documents/upload:
+    post:
+      summary: " (upload)"
+      description: "\n\n _app/controllers/therapist_documents_controller.ts_ - **upload**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/therapist/dashboard:
+    get:
+      summary: "Get a list of therapist (index)"
+      description: "\n\n _app/controllers/therapist_dashboard_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapist/clients:
+    get:
+      summary: "Get a list of therapist (index)"
+      description: "\n\n _app/controllers/therapist_clients_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapist/availability:
+    get:
+      summary: "Get a single instance of therapist (show)"
+      description: "\n\n _app/controllers/therapist_availability_controller.ts_ - **show**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+    put:
+      summary: "Update therapist (update)"
+      description: "\n\n _app/controllers/therapist_availability_controller.ts_ - **update**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/therapist/wallet:
+    get:
+      summary: "Get a list of therapist (index)"
+      description: "\n\n _app/controllers/therapist_wallet_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapist/wallet/withdraw:
+    post:
+      summary: " (withdraw)"
+      description: "\n\n _app/controllers/therapist_wallet_controller.ts_ - **withdraw**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/therapist/notifications:
+    get:
+      summary: "Get a list of therapist (index)"
+      description: "\n\n _app/controllers/therapist_notifications_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapist/notifications/mark-all-read:
+    patch:
+      summary: " (markAllAsRead)"
+      description: "\n\n _app/controllers/therapist_notifications_controller.ts_ - **markAllAsRead**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/therapist/notifications/{id}:
+    patch:
+      summary: "Update therapist (update)"
+      description: "\n\n _app/controllers/therapist_notifications_controller.ts_ - **update**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+    delete:
+      summary: "Delete therapist (destroy)"
+      description: "\n\n _app/controllers/therapist_notifications_controller.ts_ - **destroy**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapist/threads:
+    get:
+      summary: "Get a list of therapist (index)"
+      description: "\n\n _app/controllers/therapist_threads_therapist_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapist/threads/upload:
+    post:
+      summary: " (upload)"
+      description: "\n\n _app/controllers/therapist_threads_therapist_controller.ts_ - **upload**"
+      parameters: []
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/therapist/threads/{id}:
+    get:
+      summary: "Get a single instance of therapist (show)"
+      description: "\n\n _app/controllers/therapist_threads_therapist_controller.ts_ - **show**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapist/threads/{id}/messages:
+    post:
+      summary: " (createMessage)"
+      description: "\n\n _app/controllers/therapist_threads_therapist_controller.ts_ - **createMessage**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "THERAPIST"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/user/me:
+    get:
+      summary: "Get current user profile (me)"
+      description: "\n\n _app/controllers/users_controller.ts_ - **me**"
+      parameters: []
+      tags:
+        - "USER"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+    patch:
+      summary: "Update user profile (update)"
+      description: "\n\n _app/controllers/users_controller.ts_ - **update**"
+      parameters: []
+      tags:
+        - "USER"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+    delete:
+      summary: "Delete user account (destroy)"
+      description: "\n\n _app/controllers/users_controller.ts_ - **destroy**"
+      parameters: []
+      tags:
+        - "USER"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/conversations/message:
+    post:
+      summary: "Send a message in a conversation (sendMessage)"
+      description: "Send a text message and get AI response. Creates new conversation if conversationId is not provided.\n\n _app/controllers/conversations_controller.ts_ - **sendMessage**"
+      parameters: []
+      tags:
+        - "CONVERSATIONS"
+      responses:
+        200:
+          content:
+            text/plain:
+              example: "{\"success\": true, \"data\": {\"conversation\": {...}, \"message\": {...}, \"response\": {...}}}"
+          description: "Returns **200** (OK) as **text/plain**"
+        400:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success: false
+                  error:
+                    type: "object"
+                    properties:
+                      code: "..."
+                      message: "..."
+              example:
+                success: false
+                error:
+                  code: "..."
+                  message: "..."
+          description: "Returns **400** (Bad Request) as **application/json**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success: false
+                  error:
+                    type: "object"
+                    properties:
+                      code: "UNAUTHORIZED"
+                      message: "Unauthorized"
+              example:
+                success: false
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TherapistOnboardRequest'
-      responses:
-        '200':
-          description: Onboarding completed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  therapist:
-                    $ref: '#/components/schemas/TherapistPublic'
-                  token:
-                    $ref: '#/components/schemas/Token'
-        '400':
-          description: Therapist already exists or OTP not verified
-
-  /api/v1/therapist/auth/me:
+              type: "object"
+              properties:
+                conversationId: 1
+                message: "Hello"
+                mode: "text"
+                stream: true
+            example:
+              conversationId: 1
+              message: "Hello"
+              mode: "text"
+              stream: true
+  /api/v1/conversations/stream/status:
     get:
-      tags: [Therapist Auth]
-      summary: Get current therapist profile
-      operationId: therapistAuthMe
-      security:
-        - bearerAuth: []
+      summary: "Get streaming progress (polling fallback) (getStreamStatus)"
+      description: "\n\n _app/controllers/conversations_controller.ts_ - **getStreamStatus**"
+      parameters: []
+      tags:
+        - "CONVERSATIONS"
       responses:
-        '200':
-          description: Current therapist
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/conversations/history:
+    get:
+      summary: "Get conversation history (getHistory)"
+      description: "\n\n _app/controllers/conversations_controller.ts_ - **getHistory**"
+      parameters: []
+      tags:
+        - "CONVERSATIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/conversations/typing:
+    post:
+      summary: "Broadcast typing indicator (typing)"
+      description: "\n\n _app/controllers/conversations_controller.ts_ - **typing**"
+      parameters: []
+      tags:
+        - "CONVERSATIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/conversations/{id}:
+    get:
+      summary: "Get a specific conversation (getConversation)"
+      description: "\n\n _app/controllers/conversations_controller.ts_ - **getConversation**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "CONVERSATIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+    delete:
+      summary: "Delete a conversation (deleteConversation)"
+      description: "\n\n _app/controllers/conversations_controller.ts_ - **deleteConversation**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "CONVERSATIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/voice/process:
+    post:
+      summary: "Process voice message (STT + AI) (processVoiceMessage)"
+      description: "Convert speech to text, get AI response. Client uses expo-speech for TTS.\n\n _app/controllers/voice_controller.ts_ - **processVoiceMessage**"
+      parameters: []
+      tags:
+        - "VOICE"
+      responses:
+        200:
+          content:
+            text/plain:
+              example: "{\"success\": true, \"data\": {\"conversation\": {...}, \"transcript\": \"...\", \"response\": {...}, \"sentiment\": {...}}}"
+          description: "Returns **200** (OK) as **text/plain**"
+        400:
           content:
             application/json:
               schema:
-                type: object
+                type: "object"
                 properties:
-                  therapist:
-                    $ref: '#/components/schemas/TherapistMe'
-        '401':
-          description: Missing/invalid bearer token
-
+                  success: false
+                  error:
+                    type: "object"
+                    properties:
+                      code: "BAD_REQUEST"
+                      message: "..."
+              example:
+                success: false
+                error:
+                  code: "BAD_REQUEST"
+                  message: "..."
+          description: "Returns **400** (Bad Request) as **application/json**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success: false
+                  error:
+                    type: "object"
+                    properties:
+                      code: "UNAUTHORIZED"
+                      message: "Unauthorized"
+              example:
+                success: false
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: "object"
+              properties:
+                conversationId: 1
+                audioData: "base64..."
+                audioFormat: "mp3"
+            example:
+              conversationId: 1
+              audioData: "base64..."
+              audioFormat: "mp3"
+  /api/v1/gratitudes:
+    post:
+      summary: "Create a new gratitude entry (create)"
+      description: "Returns **201** (Created) as **text/plain**\n\n _app/controllers/gratitude_controller.ts_ - **create**"
+      parameters: []
+      tags:
+        - "GRATITUDES"
+      responses:
+        201:
+          content:
+            text/plain:
+              example: "{\"gratitude\": {\"id\": 1, \"entries\": [...], \"entryDate\": \"2026-01-20\", ...}}"
+          description: "Returns **201** (Created) as **text/plain**"
+        400:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  errors:
+                    type: "object"
+                    properties: {}
+              example:
+                errors: []
+          description: "Returns **400** (Bad Request) as **application/json**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Unauthorized"
+              example:
+                message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: "object"
+              properties:
+                entries:
+                  type: "object"
+                  properties:
+                    0: "I'm grateful for..."
+                    1: "Another thing..."
+                photoUrl: "https://..."
+                entryDate: "2026-01-20"
+            example:
+              entries:
+                - "I'm grateful for..."
+                - "Another thing..."
+              photoUrl: "https://..."
+              entryDate: "2026-01-20"
+    get:
+      summary: "Get user's gratitude entries (index)"
+      description: "Returns **200** (OK) as **text/plain**\n\n _app/controllers/gratitude_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "GRATITUDES"
+      responses:
+        200:
+          content:
+            text/plain:
+              example: "{\"data\": [...], \"meta\": {\"total\": 10, \"page\": 1, \"limit\": 20}}"
+          description: "Returns **200** (OK) as **text/plain**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Unauthorized"
+              example:
+                message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/gratitudes/upload-photo:
+    post:
+      summary: "Upload a photo for gratitude entry (uploadPhoto)"
+      description: "Multipart upload; returns URL to use as photoUrl when creating a gratitude entry.\n\n _app/controllers/gratitude_controller.ts_ - **uploadPhoto**"
+      parameters: []
+      tags:
+        - "GRATITUDES"
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  url: "https://..."
+              example:
+                url: "https://..."
+          description: "Returns **200** (OK) as **application/json**"
+        400:
+          content:
+            text/plain:
+              example: "Invalid or missing file"
+          description: "Returns **400** (Bad Request) as **text/plain**"
+        401:
+          content:
+            text/plain:
+              example: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **text/plain**"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/gratitudes/streak:
+    get:
+      summary: "Get current gratitude streak (streak)"
+      description: "Returns **200** (OK) as **application/json**\n\n _app/controllers/gratitude_controller.ts_ - **streak**"
+      parameters: []
+      tags:
+        - "GRATITUDES"
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  streak: 12
+                  lastEntryDate: "2026-01-20"
+              example:
+                streak: 12
+                lastEntryDate: "2026-01-20"
+          description: "Returns **200** (OK) as **application/json**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Unauthorized"
+              example:
+                message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/gratitudes/insights:
+    get:
+      summary: "Get growth insights (insights)"
+      description: "Returns **200** (OK) as **text/plain**\n\n _app/controllers/gratitude_controller.ts_ - **insights**"
+      parameters: []
+      tags:
+        - "GRATITUDES"
+      responses:
+        200:
+          content:
+            text/plain:
+              example: "{\"totalEntries\": 50, \"currentStreak\": 12, \"longestStreak\": 30, ...}"
+          description: "Returns **200** (OK) as **text/plain**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Unauthorized"
+              example:
+                message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/gratitudes/quotes/random:
+    get:
+      summary: "Get a random gratitude quote (randomQuote)"
+      description: "Returns **200** (OK) as **application/json**\n\n _app/controllers/gratitude_controller.ts_ - **randomQuote**"
+      parameters: []
+      tags:
+        - "GRATITUDES"
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  text: "Gratitude quote..."
+                  author: "Author Name"
+              example:
+                text: "Gratitude quote..."
+                author: "Author Name"
+          description: "Returns **200** (OK) as **application/json**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Unauthorized"
+              example:
+                message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/gratitudes/{id}:
+    get:
+      summary: "Get a specific gratitude entry (show)"
+      description: "Returns **200** (OK) as **text/plain**\n\n _app/controllers/gratitude_controller.ts_ - **show**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "GRATITUDES"
+      responses:
+        200:
+          content:
+            text/plain:
+              example: "{\"gratitude\": {...}}"
+          description: "Returns **200** (OK) as **text/plain**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Unauthorized"
+              example:
+                message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+        404:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Gratitude entry not found"
+              example:
+                message: "Gratitude entry not found"
+          description: "Returns **404** (Not Found) as **application/json**"
+      security:
+        - BearerAuth:
+            - "access"
+    patch:
+      summary: "Update a gratitude entry (update)"
+      description: "Updates an existing gratitude entry\n\n _app/controllers/gratitude_controller.ts_ - **update**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "GRATITUDES"
+      responses:
+        200:
+          content:
+            text/plain:
+              example: "{\"gratitude\": {...}}"
+          description: "Returns **200** (OK) as **text/plain**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Unauthorized"
+              example:
+                message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+        404:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Gratitude entry not found"
+              example:
+                message: "Gratitude entry not found"
+          description: "Returns **404** (Not Found) as **application/json**"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          text/plain:
+            example: "{\"entries\": [...], \"photoUrl\": \"https://...\"}"
+    delete:
+      summary: "Delete a gratitude entry (destroy)"
+      description: "Deletes a gratitude entry\n\n _app/controllers/gratitude_controller.ts_ - **destroy**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "GRATITUDES"
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Gratitude entry deleted successfully"
+              example:
+                message: "Gratitude entry deleted successfully"
+          description: "Returns **200** (OK) as **application/json**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Unauthorized"
+              example:
+                message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+        404:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Gratitude entry not found"
+              example:
+                message: "Gratitude entry not found"
+          description: "Returns **404** (Not Found) as **application/json**"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/moods:
+    post:
+      summary: "Create a new mood entry (create)"
+      description: "Returns **201** (Created) as **text/plain**\n\n _app/controllers/mood_controller.ts_ - **create**"
+      parameters: []
+      tags:
+        - "MOODS"
+      responses:
+        201:
+          content:
+            text/plain:
+              example: "{\"mood\": {\"id\": 1, \"mood\": \"happy\", \"intensity\": 7, ...}}"
+          description: "Returns **201** (Created) as **text/plain**"
+        400:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  errors:
+                    type: "object"
+                    properties: {}
+              example:
+                errors: []
+          description: "Returns **400** (Bad Request) as **application/json**"
+        401:
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  message: "Unauthorized"
+              example:
+                message: "Unauthorized"
+          description: "Returns **401** (Unauthorized) as **application/json**"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: "object"
+              properties:
+                mood: "happy"
+                intensity: 7
+                notes: "Feeling great today!"
+                entryDate: "2026-01-20"
+            example:
+              mood: "happy"
+              intensity: 7
+              notes: "Feeling great today!"
+              entryDate: "2026-01-20"
+    get:
+      summary: "Get user's mood entries (index)"
+      description: "Returns paginated list of mood entries for the authenticated user\n\n _app/controllers/mood_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "MOODS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/moods/streak:
+    get:
+      summary: "Get current mood tracking streak (streak)"
+      description: "\n\n _app/controllers/mood_controller.ts_ - **streak**"
+      parameters: []
+      tags:
+        - "MOODS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/moods/insights:
+    get:
+      summary: "Get mood insights (insights)"
+      description: "\n\n _app/controllers/mood_controller.ts_ - **insights**"
+      parameters: []
+      tags:
+        - "MOODS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/moods/{id}:
+    get:
+      summary: "Get a specific mood entry (show)"
+      description: "\n\n _app/controllers/mood_controller.ts_ - **show**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "MOODS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+    patch:
+      summary: "Update a mood entry (update)"
+      description: "\n\n _app/controllers/mood_controller.ts_ - **update**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "MOODS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+    delete:
+      summary: "Delete a mood entry (destroy)"
+      description: "\n\n _app/controllers/mood_controller.ts_ - **destroy**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "MOODS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/achievements:
+    get:
+      summary: "Get user achievements (index)"
+      description: "\n\n _app/controllers/achievements_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "ACHIEVEMENTS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/achievements/{id}:
+    get:
+      summary: "Get a specific achievement (show)"
+      description: "\n\n _app/controllers/achievements_controller.ts_ - **show**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "ACHIEVEMENTS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapists:
+    get:
+      summary: "Get a list of therapists (index)"
+      description: "\n\n _app/controllers/user_therapists_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "THERAPISTS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapists/{id}/bookable-slots:
+    get:
+      summary: " (bookableSlots)"
+      description: "\n\n _app/controllers/user_therapists_controller.ts_ - **bookableSlots**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "THERAPISTS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapists/{id}:
+    get:
+      summary: "Get a single instance of therapists (show)"
+      description: "\n\n _app/controllers/user_therapists_controller.ts_ - **show**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "THERAPISTS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapist-threads/upload:
+    post:
+      summary: " (upload)"
+      description: "\n\n _app/controllers/therapist_threads_controller.ts_ - **upload**"
+      parameters: []
+      tags:
+        - "THERAPIST-THREADS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/therapist-threads:
+    get:
+      summary: "Get a list of therapist-threads (index)"
+      description: "\n\n _app/controllers/therapist_threads_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "THERAPIST-THREADS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapist-threads/{id}:
+    get:
+      summary: "Get a single instance of therapist-threads (show)"
+      description: "\n\n _app/controllers/therapist_threads_controller.ts_ - **show**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "THERAPIST-THREADS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/therapist-threads/{id}/messages:
+    post:
+      summary: " (createMessage)"
+      description: "\n\n _app/controllers/therapist_threads_controller.ts_ - **createMessage**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "THERAPIST-THREADS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/payments:
+    post:
+      summary: "Create payments (store)"
+      description: "\n\n _app/controllers/user_payments_controller.ts_ - **store**"
+      parameters: []
+      tags:
+        - "PAYMENTS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
+    get:
+      summary: "Get a list of payments (index)"
+      description: "\n\n _app/controllers/user_payments_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "PAYMENTS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/sessions:
+    post:
+      summary: "Book a session with a therapist (book)"
+      description: "\n\n _app/controllers/sessions_controller.ts_ - **book**"
+      parameters: []
+      tags:
+        - "SESSIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+    get:
+      summary: "List sessions (index)"
+      description: "\n\n _app/controllers/sessions_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "SESSIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/sessions/{id}/join-room:
+    get:
+      summary: "Get meeting join token for a session (User only). Session must be SCHEDULED and have a room created. (joinRoom)"
+      description: "\n\n _app/controllers/sessions_controller.ts_ - **joinRoom**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "SESSIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/sessions/{id}:
+    get:
+      summary: "Get a single session (show)"
+      description: "\n\n _app/controllers/sessions_controller.ts_ - **show**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "SESSIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/sessions/test-room:
+    post:
+      summary: "Create a video room for testing (Therapist only) (createTestRoom)"
+      description: "\n\n _app/controllers/sessions_controller.ts_ - **createTestRoom**"
+      parameters: []
+      tags:
+        - "SESSIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/sessions/{id}/create-room:
+    post:
+      summary: "Create video room for a session (Therapist only) (createRoom)"
+      description: "\n\n _app/controllers/sessions_controller.ts_ - **createRoom**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "SESSIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/sessions/{id}/summary:
+    patch:
+      summary: "Submit session summary (Therapist only) (submitSummary)"
+      description: "\n\n _app/controllers/sessions_controller.ts_ - **submitSummary**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "SESSIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/sessions/{id}/feedback:
+    post:
+      summary: "Submit session feedback (User only) (submitFeedback)"
+      description: "\n\n _app/controllers/sessions_controller.ts_ - **submitFeedback**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "SESSIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/sessions/{id}/cancel:
+    patch:
+      summary: "Cancel a scheduled session (User or Therapist). Session must be scheduled. Frees the slot for rebooking. (cancel)"
+      description: "\n\n _app/controllers/sessions_controller.ts_ - **cancel**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "SESSIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
   /api/v1/notifications:
     get:
-      tags: [Notifications]
-      summary: List user notifications
-      operationId: notificationsIndex
-      security:
-        - bearerAuth: []
+      summary: "Get a list of notifications (index)"
+      description: "\n\n _app/controllers/notifications_controller.ts_ - **index**"
+      parameters: []
+      tags:
+        - "NOTIFICATIONS"
       responses:
-        '200':
-          description: A list of notifications
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Notification'
-        '401':
-          description: Unauthorized
-
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
   /api/v1/notifications/mark-all-read:
     patch:
-      tags: [Notifications]
-      summary: Mark all notifications as read
-      operationId: notificationsMarkAllAsRead
-      security:
-        - bearerAuth: []
+      summary: " (markAllAsRead)"
+      description: "\n\n _app/controllers/notifications_controller.ts_ - **markAllAsRead**"
+      parameters: []
+      tags:
+        - "NOTIFICATIONS"
       responses:
-        '204':
-          description: All notifications marked as read
-        '401':
-          description: Unauthorized
-
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
+        content:
+          application/json: {}
   /api/v1/notifications/{id}:
     patch:
-      tags: [Notifications]
-      summary: Mark a notification as read
-      operationId: notificationsUpdate
+      summary: "Update notifications (update)"
+      description: "\n\n _app/controllers/notifications_controller.ts_ - **update**"
       parameters:
-        - name: id
-          in: path
-          required: true
+        - in: "path"
+          name: "id"
           schema:
-            type: integer
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Notification updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Notification'
-        '401':
-          description: Unauthorized
-        '404':
-          description: Notification not found
-    delete:
-      tags: [Notifications]
-      summary: Delete a notification
-      operationId: notificationsDestroy
-      parameters:
-        - name: id
-          in: path
+            type: "string"
           required: true
-          schema:
-            type: integer
-      security:
-        - bearerAuth: []
+      tags:
+        - "NOTIFICATIONS"
       responses:
-        '204':
-          description: Notification deleted
-        '401':
-          description: Unauthorized
-        '404':
-          description: Notification not found
-
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: |
-        API token returned by the auth endpoints.
-
-        Send as: `Authorization: Bearer <token>`
-
-  schemas:
-    Notification:
-      type: object
-      properties:
-        id:
-          type: integer
-        userId:
-          type: integer
-        title:
-          type: string
-        message:
-          type: string
-        type:
-          type: string
-        isRead:
-          type: boolean
-        data:
-          type: object
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    Conversation:
-      type: object
-      properties:
-        id:
-          type: integer
-        title:
-          type: string
-          nullable: true
-        mode:
-          type: string
-          enum: [text, voice]
-        createdAt:
-          type: string
-          format: date-time
-
-    Message:
-      type: object
-      properties:
-        id:
-          type: integer
-        role:
-          type: string
-          enum: [user, assistant, system]
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+      requestBody:
         content:
-          type: string
-        metadata:
-          type: object
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-
-    AppleAuthRequest:
-      type: object
-      additionalProperties: false
-      required: [idToken]
-      properties:
-        idToken:
-          type: string
-          description: Apple ID token (JWT)
-          example: 'eyJraWQiOiIxQTJCNEMzRCIsImFsZyI6IlJTMjU2In0...'
-        fullName:
-          type: string
-          nullable: true
-          example: 'Ada Lovelace'
-        authorizationCode:
-          type: string
-          nullable: true
-          description: Presently unused by the API, accepted for future Apple flows
-          example: 'c9b2a0c2c9d14f7a9c...'
-
-    UserPublic:
-      type: object
-      additionalProperties: false
-      required: [id, email, fullName, avatarUrl, emailVerified]
-      properties:
-        id:
-          type: integer
-          format: int64
-          example: 1
-        email:
-          type: string
-          format: email
-          example: user@example.com
-        fullName:
-          type: string
-          nullable: true
-          example: Ada Lovelace
-        avatarUrl:
-          type: string
-          nullable: true
-          example: https://cdn.haven.app/avatar.png
-        emailVerified:
-          type: boolean
-          example: true
-
-    UserMe:
-      allOf:
-        - $ref: '#/components/schemas/UserPublic'
-        - type: object
-          additionalProperties: false
-          required: [lastLoginAt, createdAt]
-          properties:
-            lastLoginAt:
-              type: string
-              format: date-time
-              nullable: true
-            createdAt:
-              type: string
-              format: date-time
-
-    TherapistPublic:
-      type: object
-      additionalProperties: false
-      required: [id, email, fullName, professionalTitle, emailVerified]
-      properties:
-        id:
-          type: integer
-          example: 1
-        email:
-          type: string
-          format: email
-          example: therapist@example.com
-        fullName:
-          type: string
-          example: Dr. Sarah Mitchell
-        professionalTitle:
-          type: string
-          example: Psychologist, LCSW
-        specialties:
-          type: array
-          items:
-            type: string
-          example: [Anxiety, Depression]
-        emailVerified:
-          type: boolean
-          example: true
-
-    TherapistMe:
-      allOf:
-        - $ref: '#/components/schemas/TherapistPublic'
-        - type: object
-          properties:
-            licenseUrl:
-              type: string
-              format: uri
-              nullable: true
-            identityUrl:
-              type: string
-              format: uri
-              nullable: true
-            lastLoginAt:
-              type: string
-              format: date-time
-              nullable: true
-            createdAt:
-              type: string
-              format: date-time
-
-    TherapistOnboardRequest:
-      type: object
-      required: [email, fullName, professionalTitle, specialties]
-      properties:
-        email:
-          type: string
-          format: email
-          example: therapist@example.com
-        fullName:
-          type: string
-          example: Dr. Sarah Mitchell
-        professionalTitle:
-          type: string
-          example: Psychologist, LCSW
-        licenseUrl:
-          type: string
-          format: uri
-          example: https://example.com/license.pdf
-        identityUrl:
-          type: string
-          format: uri
-          example: https://example.com/id.pdf
-        specialties:
-          type: array
-          items:
-            type: string
-          example: [Anxiety, Depression]
-
-    Token:
-      type: object
-      additionalProperties: false
-      required: [type, value, expiresAt]
-      properties:
-        type:
-          type: string
-          enum: [bearer]
-          example: bearer
-        value:
-          type: string
-          description: Token string to use in the Authorization header
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-        expiresAt:
-          type: string
-          format: date-time
-          nullable: true
-          example: 2026-01-23T12:00:00.000Z
-
-    AuthResponse:
-      type: object
-      additionalProperties: false
-      required: [user, token]
-      properties:
-        user:
-          $ref: '#/components/schemas/UserPublic'
-        token:
-          $ref: '#/components/schemas/Token'
-      example:
-        user:
-          id: 1
-          email: user@example.com
-          fullName: Ada Lovelace
-          avatarUrl: https://cdn.haven.app/avatar.png
-          emailVerified: true
-        token:
-          type: bearer
-          value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-          expiresAt: 2026-01-23T12:00:00.000Z
-
-    MeResponse:
-      type: object
-      additionalProperties: false
-      required: [user]
-      properties:
-        user:
-          $ref: '#/components/schemas/UserMe'
-      example:
-        user:
-          id: 1
-          email: user@example.com
-          fullName: Ada Lovelace
-          avatarUrl: https://cdn.haven.app/avatar.png
-          emailVerified: true
-          lastLoginAt: 2026-01-23T11:00:00.000Z
-          createdAt: 2026-01-01T10:00:00.000Z
-
-    RefreshResponse:
-      type: object
-      additionalProperties: false
-      required: [token]
-      properties:
-        token:
-          $ref: '#/components/schemas/Token'
-      example:
-        token:
-          type: bearer
-          value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-          expiresAt: 2026-01-23T12:00:00.000Z
-
-    LogoutResponse:
-      type: object
-      additionalProperties: false
-      required: [message]
-      properties:
-        message:
-          type: string
-          example: Logged out successfully
-      example:
-        message: Logged out successfully
-
-    ErrorResponse:
-      type: object
-      additionalProperties: true
-      properties:
-        message:
-          type: string
-          example: Unauthorized
-      example:
-        message: Unauthorized
-
-    ValidationErrorResponse:
-      type: object
-      additionalProperties: true
-      description: VineJS/Adonis validation error payload (shape may vary by configuration).
-      properties:
-        errors:
-          type: array
-          items:
-            type: object
-            additionalProperties: true
-      example:
-        errors:
-          - field: email
-            message: Email is required
-          - field: password
-            message: Password must be at least 8 characters
+          application/json: {}
+    delete:
+      summary: "Delete notifications (destroy)"
+      description: "\n\n _app/controllers/notifications_controller.ts_ - **destroy**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATIONS"
+      responses:
+        401:
+          description: "Returns **401** (Unauthorized)"
+        403:
+          description: "Returns **403** (Forbidden)"
+      security:
+        - BearerAuth:
+            - "access"
+  /api/v1/notification-channels:
+    get:
+      summary: " (channels)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **channels**"
+      parameters: []
+      tags:
+        - "NOTIFICATION-CHANNELS"
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
+    post:
+      summary: " (storeChannel)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **storeChannel**"
+      parameters: []
+      tags:
+        - "NOTIFICATION-CHANNELS"
+      responses:
+        201:
+          description: "Created"
+          content:
+            application/json: {}
+      security: []
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/notification-channels/{id}:
+    get:
+      summary: " (showChannel)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **showChannel**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-CHANNELS"
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
+    patch:
+      summary: " (updateChannel)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **updateChannel**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-CHANNELS"
+      responses:
+        undefined:
+          description: "Unknown"
+          content:
+            application/json: {}
+      security: []
+      requestBody:
+        content:
+          application/json: {}
+    delete:
+      summary: " (destroyChannel)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **destroyChannel**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-CHANNELS"
+      responses:
+        202:
+          description: "Accepted"
+          content:
+            application/json: {}
+      security: []
+  /api/v1/notification-categories:
+    get:
+      summary: " (categories)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **categories**"
+      parameters: []
+      tags:
+        - "NOTIFICATION-CATEGORIES"
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
+    post:
+      summary: " (storeCategory)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **storeCategory**"
+      parameters: []
+      tags:
+        - "NOTIFICATION-CATEGORIES"
+      responses:
+        201:
+          description: "Created"
+          content:
+            application/json: {}
+      security: []
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/notification-categories/{id}:
+    get:
+      summary: " (showCategory)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **showCategory**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-CATEGORIES"
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
+    patch:
+      summary: " (updateCategory)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **updateCategory**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-CATEGORIES"
+      responses:
+        undefined:
+          description: "Unknown"
+          content:
+            application/json: {}
+      security: []
+      requestBody:
+        content:
+          application/json: {}
+    delete:
+      summary: " (destroyCategory)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **destroyCategory**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-CATEGORIES"
+      responses:
+        202:
+          description: "Accepted"
+          content:
+            application/json: {}
+      security: []
+  /api/v1/notification-types:
+    get:
+      summary: " (types)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **types**"
+      parameters: []
+      tags:
+        - "NOTIFICATION-TYPES"
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
+    post:
+      summary: " (storeType)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **storeType**"
+      parameters: []
+      tags:
+        - "NOTIFICATION-TYPES"
+      responses:
+        201:
+          description: "Created"
+          content:
+            application/json: {}
+      security: []
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/notification-types/{id}:
+    get:
+      summary: " (showType)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **showType**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-TYPES"
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
+    patch:
+      summary: " (updateType)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **updateType**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-TYPES"
+      responses:
+        undefined:
+          description: "Unknown"
+          content:
+            application/json: {}
+      security: []
+      requestBody:
+        content:
+          application/json: {}
+    delete:
+      summary: " (destroyType)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **destroyType**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-TYPES"
+      responses:
+        202:
+          description: "Accepted"
+          content:
+            application/json: {}
+      security: []
+  /api/v1/notification-templates:
+    get:
+      summary: " (templates)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **templates**"
+      parameters: []
+      tags:
+        - "NOTIFICATION-TEMPLATES"
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
+    post:
+      summary: " (storeTemplate)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **storeTemplate**"
+      parameters: []
+      tags:
+        - "NOTIFICATION-TEMPLATES"
+      responses:
+        201:
+          description: "Created"
+          content:
+            application/json: {}
+      security: []
+      requestBody:
+        content:
+          application/json: {}
+  /api/v1/notification-templates/{id}:
+    get:
+      summary: " (showTemplate)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **showTemplate**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-TEMPLATES"
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
+    patch:
+      summary: " (updateTemplate)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **updateTemplate**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-TEMPLATES"
+      responses:
+        undefined:
+          description: "Unknown"
+          content:
+            application/json: {}
+      security: []
+      requestBody:
+        content:
+          application/json: {}
+    delete:
+      summary: " (destroyTemplate)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **destroyTemplate**"
+      parameters:
+        - in: "path"
+          name: "id"
+          schema:
+            type: "string"
+          required: true
+      tags:
+        - "NOTIFICATION-TEMPLATES"
+      responses:
+        202:
+          description: "Accepted"
+          content:
+            application/json: {}
+      security: []
+  /api/v1/notification-deliveries:
+    get:
+      summary: " (deliveries)"
+      description: "\n\n _app/controllers/notification_module_controller.ts_ - **deliveries**"
+      parameters: []
+      tags:
+        - "NOTIFICATION-DELIVERIES"
+      responses:
+        200:
+          description: "OK"
+          content:
+            application/json: {}
+      security: []
+tags:
+  - name: "AUTH"
+    description: "Everything related to AUTH"
+  - name: "AUTH"
+    description: "Everything related to AUTH"
+  - name: "AUTH"
+    description: "Everything related to AUTH"
+  - name: "AUTH"
+    description: "Everything related to AUTH"
+  - name: "AUTH"
+    description: "Everything related to AUTH"
+  - name: "AUTH"
+    description: "Everything related to AUTH"
+  - name: "THERAPIST"
+    description: "Everything related to THERAPIST"
+  - name: "USER"
+    description: "Everything related to USER"
+  - name: "CONVERSATIONS"
+    description: "Everything related to CONVERSATIONS"
+  - name: "CONVERSATIONS"
+    description: "Everything related to CONVERSATIONS"
+  - name: "CONVERSATIONS"
+    description: "Everything related to CONVERSATIONS"
+  - name: "CONVERSATIONS"
+    description: "Everything related to CONVERSATIONS"
+  - name: "CONVERSATIONS"
+    description: "Everything related to CONVERSATIONS"
+  - name: "CONVERSATIONS"
+    description: "Everything related to CONVERSATIONS"
+  - name: "CONVERSATIONS"
+    description: "Everything related to CONVERSATIONS"
+  - name: "VOICE"
+    description: "Everything related to VOICE"
+  - name: "VOICE"
+    description: "Everything related to VOICE"
+  - name: "GRATITUDES"
+    description: "Everything related to GRATITUDES"
+  - name: "MOODS"
+    description: "Everything related to MOODS"
+  - name: "ACHIEVEMENTS"
+    description: "Everything related to ACHIEVEMENTS"
+  - name: "THERAPISTS"
+    description: "Everything related to THERAPISTS"
+  - name: "THERAPIST-THREADS"
+    description: "Everything related to THERAPIST-THREADS"
+  - name: "PAYMENTS"
+    description: "Everything related to PAYMENTS"
+  - name: "SESSIONS"
+    description: "Everything related to SESSIONS"
+  - name: "SESSIONS"
+    description: "Everything related to SESSIONS"
+  - name: "SESSIONS"
+    description: "Everything related to SESSIONS"
+  - name: "SESSIONS"
+    description: "Everything related to SESSIONS"
+  - name: "SESSIONS"
+    description: "Everything related to SESSIONS"
+  - name: "SESSIONS"
+    description: "Everything related to SESSIONS"
+  - name: "SESSIONS"
+    description: "Everything related to SESSIONS"
+  - name: "SESSIONS"
+    description: "Everything related to SESSIONS"
+  - name: "SESSIONS"
+    description: "Everything related to SESSIONS"
+  - name: "NOTIFICATIONS"
+    description: "Everything related to NOTIFICATIONS"
+  - name: "NOTIFICATION-CHANNELS"
+    description: "Everything related to NOTIFICATION-CHANNELS"
+  - name: "NOTIFICATION-CATEGORIES"
+    description: "Everything related to NOTIFICATION-CATEGORIES"
+  - name: "NOTIFICATION-TYPES"
+    description: "Everything related to NOTIFICATION-TYPES"
+  - name: "NOTIFICATION-TEMPLATES"
+    description: "Everything related to NOTIFICATION-TEMPLATES"
+  - name: "NOTIFICATION-DELIVERIES"
+    description: "Everything related to NOTIFICATION-DELIVERIES"
